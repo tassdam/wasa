@@ -1,0 +1,43 @@
+openapi: 3.0.3 
+info:
+  title: Simplified login API specification 
+  description: |-
+    This OpenAPI document describes the simplified login API.
+    Copy and paste the API from the paths key to your OpenAPI document.
+  version: "1" 
+paths:
+  /session: 
+    post:
+      tags: ["login"]
+      summary: Logs in the user 
+      description: |-
+        If the user does not exist, it will be created,
+        and an identifier is returned.
+        If the user exists, the user identifier is returned.
+      operationId: doLogin 
+      requestBody:
+        description: User details 
+        content:
+          application/json: 
+            schema:
+              type: object 
+              properties:
+                name:
+                  type: string 
+                  example: Maria 
+                  pattern: 'ˆ.*?$' 
+                  minLength: 3 
+                  maxLength: 16
+        required: true 
+      responses:
+        '201':
+          description: User log-in action successful 
+          content:
+            application/json: 
+              schema:
+                type: object 
+                properties:
+                  identifier:
+                    # change here if you decide to use an integer # or any other type of identifier
+                    type: string
+                    example: "abcdef012345"
