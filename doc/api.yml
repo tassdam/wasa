@@ -392,7 +392,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   schemas:
     Conversation:
       type: object
