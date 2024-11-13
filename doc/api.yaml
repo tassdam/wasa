@@ -10,6 +10,7 @@ info:
 
     E-mail: tassybayev.2046612@studenti.uniroma1.it
   version: "1.0.1"
+
 tags:
   - name: login
     description: Operations related to user login
@@ -24,6 +25,9 @@ tags:
   - name: group
     description: Operations related to groups
 
+security:
+  - BearerAuth: []
+
 paths:
   /session:
     post:
@@ -34,6 +38,7 @@ paths:
         and an identifier is returned.
         If the user exists, the user identifier is returned.
       operationId: doLogin
+      security: []
       requestBody:
         description: User details
         required: true
@@ -450,7 +455,7 @@ components:
           type: string
           format: date-time
           description: When the message was sent
-        forwardedFromId:
+        forwardedMessageId:
           type: string
           description: ID of the original message if this is a forwarded message
           example: "msg789"
