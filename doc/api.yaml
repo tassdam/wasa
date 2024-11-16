@@ -41,7 +41,7 @@ paths:
         If the user does not exist, it will be created,
         and an identifier is returned.
         If the user exists, the user identifier is returned.
-      operationId: do_login
+      operationId: doLogin
       security: []
       requestBody:
         description: User details
@@ -65,7 +65,7 @@ paths:
       tags: ["user"]
       summary: Updates the authenticated user's information
       description: Updates the user's username
-      operationId: set_my_user_name
+      operationId: setMyUserName
       security:
         - BearerAuth: []
       requestBody:
@@ -91,7 +91,7 @@ paths:
       tags: ["conversation"]
       summary: Retrieves the list of conversations for the authenticated user
       description: Retrieves conversations
-      operationId: get_my_conversations
+      operationId: getMyConversations
       security:
         - BearerAuth: []
       responses:
@@ -100,33 +100,36 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConversationsResponse'
+                $ref: '#/components/schemas/ConversationDetailsCollection'
               example:
                 conversations:
                   - id: "conv123"
                     name: "Group Chat"
                     members: ["user123", "user456"]
-                    last_message:
+                    lastMessage:
                       id: "msg789"
-                      sender_id: "user456"
+                      senderId: "user456"
                       content: "Hello!"
                       timestamp: "2023-10-20T10:00:00Z"
 
-  /conversations/{conversation_id}:
+  /conversations/{conversationId}:
     get:
       tags: ["conversation"]
       summary: Retrieves details of a specific conversation
       description: Retrieves conversation details
-      operationId: get_conversation
+      operationId: getConversation
       security:
         - BearerAuth: []
       parameters:
-        - name: conversation_id
+        - name: conversationId
           in: path
           required: true
           description: ID of the conversation
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       responses:
         '200':
           description: Conversation details
@@ -140,25 +143,28 @@ paths:
                 members: ["user123", "user456"]
                 messages:
                   - id: "msg789"
-                    sender_id: "user456"
+                    senderId: "user456"
                     content: "Hello!"
                     timestamp: "2023-10-20T10:00:00Z"
 
-  /conversations/{conversation_id}/messages:
+  /conversations/{conversationId}/messages:
     post:
       tags: ["message"]
       summary: Sends a message in a conversation
       description: Sends a message
-      operationId: send_message
+      operationId: sendMessage
       security:
         - BearerAuth: []
       parameters:
-        - name: conversation_id
+        - name: conversationId
           in: path
           required: true
           description: ID of the conversation
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       requestBody:
         description: Message content
         required: true
@@ -175,25 +181,28 @@ paths:
                 $ref: '#/components/schemas/Message'
               example:
                 id: "msg123"
-                sender_id: "user123"
+                senderId: "user123"
                 content: "Hello, world!"
                 timestamp: "2023-10-20T10:05:00Z"
 
-  /messages/{message_id}/comments:
+  /messages/{messageId}/comments:
     post:
       tags: ["comment"]
       summary: Adds a comment to a message
       description: Adds a comment
-      operationId: comment_message
+      operationId: commentMessage
       security:
         - BearerAuth: []
       parameters:
-        - name: message_id
+        - name: messageId
           in: path
           required: true
           description: ID of the message to comment on
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       requestBody:
         description: Comment content
         required: true
@@ -210,69 +219,81 @@ paths:
                 $ref: '#/components/schemas/Comment'
               example:
                 id: "cmt123"
-                author_id: "user789"
+                authorId: "user789"
                 content: "Nice post!"
                 timestamp: "2023-10-20T10:10:00Z"
 
-  /messages/{message_id}/comments/{comment_id}:
+  /messages/{messageId}/comments/{commentId}:
     delete:
       tags: ["comment"]
       summary: Removes a comment from a message
       description: Deletes a comment
-      operationId: uncomment_message
+      operationId: uncommentMessage
       security:
         - BearerAuth: []
       parameters:
-        - name: message_id
+        - name: messageId
           in: path
           required: true
           description: ID of the message
           schema:
             type: string
-        - name: comment_id
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
+        - name: commentId
           in: path
           required: true
           description: ID of the comment to delete
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       responses:
         '204':
           description: Comment deleted successfully
 
-  /messages/{message_id}:
+  /messages/{messageId}:
     delete:
       tags: ["message"]
       summary: Deletes a message
       description: Deletes a message
-      operationId: delete_message
+      operationId: deleteMessage
       security:
         - BearerAuth: []
       parameters:
-        - name: message_id
+        - name: messageId
           in: path
           required: true
           description: ID of the message to delete
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       responses:
         '204':
           description: Message deleted successfully
 
-  /groups/{group_id}/members:
+  /groups/{groupId}/members:
     post:
       tags: ["group"]
       summary: Adds a user to a group
       description: Adds a user to a group
-      operationId: add_to_group
+      operationId: addToGroup
       security:
         - BearerAuth: []
       parameters:
-        - name: group_id
+        - name: groupId
           in: path
           required: true
           description: ID of the group
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       requestBody:
         description: User to add to the group
         required: true
@@ -288,43 +309,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/GroupMember'
               example:
-                user_id: "user789"
-                joined_at: "2023-10-20T11:00:00Z"
+                userId: "user789"
+                joinedAt: "2023-10-20T11:00:00Z"
 
-  /groups/{group_id}/members/me:
+  /groups/{groupId}/members/me:
     delete:
       tags: ["group"]
       summary: Removes the authenticated user from a group
       description: Leaves a group
-      operationId: leave_group
+      operationId: leaveGroup
       security:
         - BearerAuth: []
       parameters:
-        - name: group_id
+        - name: groupId
           in: path
           required: true
           description: ID of the group
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       responses:
         '204':
           description: Left group successfully
 
-  /groups/{group_id}:
+  /groups/{groupId}:
     put:
       tags: ["group"]
       summary: Updates the group's information
       description: Updates group information
-      operationId: set_group_name
+      operationId: setGroupName
       security:
         - BearerAuth: []
       parameters:
-        - name: group_id
+        - name: groupId
           in: path
           required: true
           description: ID of the group
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       requestBody:
         description: New group information
         required: true
@@ -348,7 +375,7 @@ paths:
       tags: ["user"]
       summary: Updates the authenticated user's photo
       description: Updates user's photo
-      operationId: set_my_photo
+      operationId: setMyPhoto
       security:
         - BearerAuth: []
       requestBody:
@@ -359,29 +386,38 @@ paths:
             schema:
               type: string
               format: binary
+              description: PNG image file
+              minLength: 1
+              maxLength: 10485760  # 10 MB
           image/jpeg:
             schema:
               type: string
               format: binary
+              description: JPEG image file
+              minLength: 1
+              maxLength: 10485760  # 10 MB
       responses:
         '200':
           description: Photo updated successfully
 
-  /groups/{group_id}/photo:
+  /groups/{groupId}/photo:
     put:
       tags: ["group"]
       summary: Updates the group's photo
       description: Updates group's photo
-      operationId: set_group_photo
+      operationId: setGroupPhoto
       security:
         - BearerAuth: []
       parameters:
-        - name: group_id
+        - name: groupId
           in: path
           required: true
           description: ID of the group
           schema:
             type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
       requestBody:
         description: New photo
         required: true
@@ -390,10 +426,16 @@ paths:
             schema:
               type: string
               format: binary
+              description: PNG image file
+              minLength: 1
+              maxLength: 10485760  # 10 MB
           image/jpeg:
             schema:
               type: string
               format: binary
+              description: JPEG image file
+              minLength: 1
+              maxLength: 10485760  # 10 MB
       responses:
         '200':
           description: Group photo updated successfully
@@ -426,6 +468,9 @@ components:
           type: string
           description: The identifier of the logged-in user
           example: "abcdef012345"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
       description: Response schema for user login
 
     UpdateUserRequest:
@@ -447,34 +492,47 @@ components:
           type: string
           description: Unique identifier of the user
           example: "user123"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
         name:
           type: string
           description: Name of the user
           example: "Maria"
           minLength: 3
           maxLength: 16
+          pattern: '^[a-zA-Z0-9_]+$'
       description: User schema
 
-    ConversationsResponse:
+    ConversationDetailsCollection:
       type: object
       required:
         - conversations
       properties:
         conversations:
           type: array
+          description: List of conversations
           minItems: 0
+          maxItems: 1000
           items:
-            $ref: '#/components/schemas/Conversation'
+            $ref: '#/components/schemas/ConversationDetailsSummary'
       description: Response schema for list of conversations
 
-    Conversation:
+    ConversationDetailsSummary:
       type: object
-      description: A conversation between users
+      description: A summary of a conversation between users
+      required:
+        - id
+        - name
+        - members
       properties:
         id:
           type: string
           description: Unique identifier of the conversation
           example: "conv123"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
         name:
           type: string
           description: Name of the conversation
@@ -490,16 +548,17 @@ components:
             description: User ID
             example: "user123"
             minLength: 1
-            maxLength: 16
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
           minItems: 1
           maxItems: 100
-        last_message:
+        lastMessage:
           $ref: '#/components/schemas/Message'
 
     ConversationDetails:
-      allOf:
-        - $ref: '#/components/schemas/Conversation'
       type: object
+      allOf:
+        - $ref: '#/components/schemas/ConversationDetailsSummary'
       required:
         - messages
       properties:
@@ -509,6 +568,7 @@ components:
           items:
             $ref: '#/components/schemas/Message'
           minItems: 0
+          maxItems: 1000
       description: Detailed conversation schema
 
     Message:
@@ -519,24 +579,36 @@ components:
           type: string
           description: Unique identifier of the message
           example: "msg123"
-        sender_id:
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+        senderId:
           type: string
           description: ID of the user who sent the message
           example: "user456"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
         content:
           type: string
           description: Content of the message
           example: "Hello, world!"
           minLength: 1
           maxLength: 1000
+          pattern: '^.*$'
         timestamp:
           type: string
           format: date-time
           description: When the message was sent
-        forwarded_message_id:
+          minLength: 20
+          maxLength: 29
+        forwardedMessageId:
           type: string
           description: ID of the original message if this is a forwarded message
           example: "msg789"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
 
     SendMessageRequest:
       type: object
@@ -549,9 +621,13 @@ components:
           example: "Hello, world!"
           minLength: 1
           maxLength: 1000
-        forwarded_message_id:
+          pattern: '^.*$'
+        forwardedMessageId:
           type: string
           description: ID of the message being forwarded (if any)
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
       description: Request schema for sending a message
 
     AddCommentRequest:
@@ -565,6 +641,7 @@ components:
           example: "Nice post!"
           minLength: 1
           maxLength: 500
+          pattern: '^.*$'
       description: Request schema for adding a comment
 
     Comment:
@@ -575,44 +652,61 @@ components:
           type: string
           description: Unique identifier of the comment
           example: "cmt123"
-        author_id:
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+        authorId:
           type: string
           description: ID of the user who wrote the comment
           example: "user789"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
         content:
           type: string
           description: Content of the comment
           example: "Nice post!"
           minLength: 1
           maxLength: 500
+          pattern: '^.*$'
         timestamp:
           type: string
           format: date-time
           description: When the comment was made
+          minLength: 20
+          maxLength: 29
 
     AddGroupMemberRequest:
       type: object
       required:
-        - user_id
+        - userId
       properties:
-        user_id:
+        userId:
           type: string
           description: ID of the user to add
           example: "user789"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
       description: Request schema for adding a group member
 
     GroupMember:
       type: object
       description: A member of a group
       properties:
-        user_id:
+        userId:
           type: string
           description: ID of the user
           example: "user123"
-        joined_at:
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+        joinedAt:
           type: string
           format: date-time
           description: When the user joined the group
+          minLength: 20
+          maxLength: 29
 
     UpdateGroupRequest:
       type: object
@@ -634,6 +728,9 @@ components:
           type: string
           description: Unique identifier of the group
           example: "group123"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
         name:
           type: string
           description: Name of the group
