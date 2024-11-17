@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: WASAText
   description: |-
-    This OpenAPI document describes multiple APIs.
+    This OpenAPI document describes APIs for the project 'WASAText'.
 
     Student: Damir Tassybayev
 
