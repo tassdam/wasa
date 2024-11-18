@@ -395,6 +395,21 @@ paths:
       responses:
         '200':
           description: Photo updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Confirmation message for photo update
+                properties:
+                  message:
+                    type: string
+                    description: Confirmation message indicating successful photo update
+                    example: "Photo updated successfully"
+                    pattern: '^.*$'
+                    minLength: 1
+                    maxLength: 100
+              example:
+                message: "Photo updated successfully"
 
   /groups/{groupId}/photo:
     put:
@@ -435,6 +450,21 @@ paths:
       responses:
         '200':
           description: Group photo updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Confirmation message for group photo update
+                properties:
+                  message:
+                    type: string
+                    description: Confirmation message indicating successful group photo update
+                    example: "Group photo updated successfully"
+                    pattern: '^.*$'
+                    minLength: 1
+                    maxLength: 100
+              example:
+                message: "Group photo updated successfully"
 
 components:
   securitySchemes:
@@ -504,6 +534,7 @@ components:
       type: object
       required:
         - conversations
+      description: Response schema for list of conversations
       properties:
         conversations:
           type: array
@@ -512,7 +543,6 @@ components:
           maxItems: 1000
           items:
             $ref: '#/components/schemas/ConversationDetailsSummary'
-      description: Response schema for list of conversations
 
     ConversationDetailsSummary:
       type: object
@@ -553,6 +583,7 @@ components:
 
     ConversationDetails:
       type: object
+      description: Detailed conversation schema
       allOf:
         - $ref: '#/components/schemas/ConversationDetailsSummary'
       required:
@@ -565,7 +596,6 @@ components:
             $ref: '#/components/schemas/Message'
           minItems: 0
           maxItems: 1000
-      description: Detailed conversation schema
 
     Message:
       type: object
