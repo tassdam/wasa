@@ -1,3 +1,3 @@
 # WASA
-## A repository for delivering the project of WASA (ACSAI Sapienza)
+## A repository for delivering 'WASAText' project (ACSAI)
 ### Start of the work 
