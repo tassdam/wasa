@@ -9,7 +9,7 @@ info:
     Matricola: 2046612
 
     E-mail: tassybayev.2046612@studenti.uniroma1.it
-  version: "1.0.1"
+  version: "1.0.2"
 
 tags:
   - name: login
