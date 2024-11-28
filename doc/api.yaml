@@ -181,7 +181,7 @@ paths:
                 content: "Hello, world!"
                 timestamp: "2023-10-20T10:05:00Z"
 
-  /messages/{messageId}/comments:
+  /conversations/{conversationId}/messages/{messageId}/comments:
     post:
       tags: ["comment"]
       summary: Adds a comment to a message
@@ -219,7 +219,7 @@ paths:
                 content: "Nice post!"
                 timestamp: "2023-10-20T10:10:00Z"
 
-  /messages/{messageId}/comments/{commentId}:
+  /conversations/{conversationId}/messages/{messageId}/comments/{commentId}:
     delete:
       tags: ["comment"]
       summary: Removes a comment from a message
@@ -250,7 +250,7 @@ paths:
         '204':
           description: Comment deleted successfully
 
-  /messages/{messageId}:
+  /conversations/{conversationId}/messages/{messageId}:
     delete:
       tags: ["message"]
       summary: Deletes a message
