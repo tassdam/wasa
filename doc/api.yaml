@@ -180,6 +180,55 @@ paths:
                 senderId: "user123"
                 content: "Hello, world!"
                 timestamp: "2023-10-20T10:05:00Z"
+  /conversations/{conversationId}/messages/{messageId}/forward:
+    post:
+      tags: ["message"]
+      summary: Forwards an existing message to another conversation
+      description: Given a message in a conversation, forwards it to another conversation.
+      operationId: forwardMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          description: ID of the conversation containing the message to forward
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
+        - name: messageId
+          in: path
+          required: true
+          description: ID of the message to forward
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
+      requestBody:
+        description: Destination conversation information
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForwardMessageRequest'
+            example:
+              destinationConversationId: "conv456"
+      responses:
+        '201':
+          description: Message forwarded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              example:
+                id: "msg999"
+                senderId: "user123"
+                content: "Hello, world!"
+                timestamp: "2023-10-20T10:05:00Z"
+                forwardedMessageId: "msg123"
 
   /conversations/{conversationId}/messages/{messageId}/comments:
     post:
@@ -682,6 +731,19 @@ components:
           maxLength: 50
           pattern: '^[a-zA-Z0-9_]+$'
       description: Request schema for sending a message
+    ForwardMessageRequest:
+      type: object
+      required:
+        - destinationConversationId
+      properties:
+        destinationConversationId:
+          type: string
+          description: ID of the conversation to which the message will be forwarded
+          example: "conv456"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+      description: Request schema for forwarding a message
 
     AddCommentRequest:
       type: object
