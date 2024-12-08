@@ -731,6 +731,7 @@ components:
           maxLength: 50
           pattern: '^[a-zA-Z0-9_]+$'
       description: Request schema for sending a message
+    
     ForwardMessageRequest:
       type: object
       required:
