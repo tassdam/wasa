@@ -658,20 +658,20 @@ components:
           $ref: '#/components/schemas/Message'
 
     ConversationDetails:
-      type: object
       description: Detailed conversation schema
       allOf:
-        - $ref: '#/components/schemas/ConversationDetailsSummary'
-      required:
-        - messages
-      properties:
-        messages:
-          type: array
-          description: List of messages in the conversation
-          items:
-            $ref: '#/components/schemas/Message'
-          minItems: 0
-          maxItems: 1000
+      - $ref: '#/components/schemas/ConversationDetailsSummary'
+      - type: object
+        required:
+          - messages
+        properties:
+          messages:
+            type: array
+            description: List of messages in the conversation
+            items:
+              $ref: '#/components/schemas/Message'
+            minItems: 0
+            maxItems: 1000
 
     Message:
       type: object
