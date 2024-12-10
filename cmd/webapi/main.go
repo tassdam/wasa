@@ -91,6 +91,11 @@ func run() error {
 		logger.Debug("database stopping")
 		_ = dbconn.Close()
 	}()
+	err = database.InitSchema(dbconn, "service/database/schema.sql")
+	if err != nil {
+		logger.WithError(err).Error("error initializing DB schema")
+		return fmt.Errorf("initializing schema: %w", err)
+	}
 	db, err := database.New(dbconn)
 	if err != nil {
 		logger.WithError(err).Error("error creating AppDatabase")

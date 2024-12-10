@@ -1,76 +1,67 @@
-/*
-Package database is the middleware between the app database and the code. All data (de)serialization (save/load) from a
-persistent database are handled here. Database specific logic should never escape this package.
-
-To use this package you need to apply migrations to the database if needed/wanted, connect to it (using the database
-data source name from config), and then initialize an instance of AppDatabase from the DB connection.
-
-For example, this code adds a parameter in `webapi` executable for the database data source name (add it to the
-main.WebAPIConfiguration structure):
-
-	DB struct {
-		Filename string `conf:""`
-	}
-
-This is an example on how to migrate the DB and connect to it:
-
-	// Start Database
-	logger.Println("initializing database support")
-	db, err := sql.Open("sqlite3", "./foo.db")
-	if err != nil {
-		logger.WithError(err).Error("error opening SQLite DB")
-		return fmt.Errorf("opening SQLite: %w", err)
-	}
-	defer func() {
-		logger.Debug("database stopping")
-		_ = db.Close()
-	}()
-
-Then you can initialize the AppDatabase and pass it to the api package.
-*/
 package database
 
 import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
+
+	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
-// AppDatabase is the high level interface for the DB
+// AppDatabase is the interface that defines the methods your application
+// needs for interacting with the database. Add methods as needed.
 type AppDatabase interface {
-	GetName() (string, error)
-	SetName(name string) error
-
 	Ping() error
+	// You will also implement methods defined in user.go, conversation.go, message.go, etc.
 }
 
+// appdbimpl is the internal implementation of AppDatabase.
+// It holds a reference to the SQL database connection.
 type appdbimpl struct {
 	c *sql.DB
 }
 
-// New returns a new instance of AppDatabase based on the SQLite connection `db`.
-// `db` is required - an error will be returned if `db` is `nil`.
+// New returns a new instance of AppDatabase based on the provided *sql.DB.
+// It expects that the schema is already initialized (InitSchema called beforehand).
 func New(db *sql.DB) (AppDatabase, error) {
 	if db == nil {
-		return nil, errors.New("database is required when building a AppDatabase")
+		return nil, errors.New("database is required when building an AppDatabase")
 	}
-
-	// Check if table exists. If not, the database is empty, and we need to create the structure
-	var tableName string
-	err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='example_table';`).Scan(&tableName)
-	if errors.Is(err, sql.ErrNoRows) {
-		sqlStmt := `CREATE TABLE example_table (id INTEGER NOT NULL PRIMARY KEY, name TEXT);`
-		_, err = db.Exec(sqlStmt)
-		if err != nil {
-			return nil, fmt.Errorf("error creating database structure: %w", err)
-		}
-	}
-
-	return &appdbimpl{
-		c: db,
-	}, nil
+	return &appdbimpl{c: db}, nil
 }
 
+// Ping checks the database connection.
 func (db *appdbimpl) Ping() error {
 	return db.c.Ping()
+}
+
+// OpenDB opens a connection to the given SQLite database file.
+func OpenDB(dataSourceName string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dataSourceName)
+	if err != nil {
+		return nil, fmt.Errorf("could not open SQLite database: %w", err)
+	}
+
+	if err = db.Ping(); err != nil {
+		return nil, fmt.Errorf("could not ping SQLite database: %w", err)
+	}
+	return db, nil
+}
+
+// InitSchema reads and executes the SQL schema from the given file.
+func InitSchema(db *sql.DB, schemaPath string) error {
+	schema, err := ioutil.ReadFile(schemaPath)
+	if err != nil {
+		return fmt.Errorf("failed to read schema file: %w", err)
+	}
+
+	_, err = db.Exec(string(schema))
+	if err != nil {
+		return fmt.Errorf("failed to execute schema: %w", err)
+	}
+
+	log.Println("Database schema initialized successfully.")
+	return nil
 }
