@@ -658,20 +658,50 @@ components:
           $ref: '#/components/schemas/Message'
 
     ConversationDetails:
+      title: "Conversation Details"
+      type: object
       description: Detailed conversation schema
-      allOf:
-      - $ref: '#/components/schemas/ConversationDetailsSummary'
-      - type: object
-        required:
-          - messages
-        properties:
-          messages:
-            type: array
-            description: List of messages in the conversation
-            items:
-              $ref: '#/components/schemas/Message'
-            minItems: 0
-            maxItems: 1000
+      required:
+        - id
+        - name
+        - members
+        - messages
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the conversation
+          example: "conv123"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+        name:
+          type: string
+          description: Name of the conversation
+          example: "Group Chat"
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_ ]+$'
+        members:
+          type: array
+          description: List of user IDs participating in the conversation
+          items:
+            type: string
+            description: User ID
+            example: "user123"
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_]+$'
+          minItems: 1
+          maxItems: 100
+        lastMessage:
+          $ref: '#/components/schemas/Message'
+        messages:
+          type: array
+          description: List of messages in the conversation
+          items:
+            $ref: '#/components/schemas/Message'
+          minItems: 0
+          maxItems: 1000
 
     Message:
       type: object
