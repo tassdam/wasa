@@ -16,8 +16,9 @@ var ErrGroupMemberDoesNotExist = errors.New("Group member does not exist")
 
 // Define models as per your WASAText specification
 type User struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+	Photo []byte `json:"photo,omitempty"`
 }
 
 type Conversation struct {
@@ -91,7 +92,8 @@ func New(db *sql.DB) (AppDatabase, error) {
 
 		usersTable := `CREATE TABLE users (
 			id TEXT NOT NULL PRIMARY KEY,
-			name TEXT NOT NULL UNIQUE
+			name TEXT NOT NULL UNIQUE,
+			photo BLOB
 		);`
 
 		conversationsTable := `CREATE TABLE conversations (
