@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gofrs/uuid"
@@ -69,8 +68,8 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	// According to the OpenAPI spec, successful login action is '201'
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	fmt.Println("TEST")
 	json.NewEncoder(w).Encode(resp)
+
 }
 
 // generateNewID uses github.com/gofrs/uuid to generate a unique user ID.
