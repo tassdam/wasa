@@ -1,0 +1,22 @@
+FROM golang:1.19.1 AS builder
+
+### Copy Go code
+WORKDIR /src/
+COPY . .
+
+### Build executables
+RUN go build -o /app/webapi ./cmd/webapi
+
+
+### Create final container
+FROM debian:bullseye
+
+### Inform Docker about which port is used
+EXPOSE 3000 4000
+
+### Copy the build executable from the builder image
+WORKDIR /app/
+COPY --from=builder /app/webapi ./
+
+### Executable command
+CMD ["/app/webapi"]
