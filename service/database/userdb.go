@@ -87,3 +87,30 @@ func (db *appdbimpl) UpdateUserPhoto(userID string, photo []byte) error {
 
 	return nil
 }
+
+// SearchUsersByName searches for users with usernames partially matching the input.
+// SearchUsersByName searches for users by a partial match on the username
+func (db *appdbimpl) SearchUsersByName(username string) ([]User, error) {
+	var users []User
+	rows, err := db.c.Query(`
+        SELECT id, name, photo
+        FROM users
+        WHERE name LIKE ?`,
+		"%"+username+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user User
+		err := rows.Scan(&user.Id, &user.Name, &user.Photo)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	// Return an empty array if no results
+	return users, nil
+}

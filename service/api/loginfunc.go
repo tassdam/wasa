@@ -21,13 +21,14 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 
 	// Parse the request body into a LoginRequest struct
 	var req LoginRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Validate the username
-	if len(req.Name) < 3 || len(req.Name) > 16 {
+	// ПЕРЕДЕЛАТЬ
+	if len(req.Name) < 3 || len(req.Name) > 160 {
 		http.Error(w, "Invalid username length", http.StatusBadRequest)
 		return
 	}

@@ -2,23 +2,24 @@ package database
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
 )
 
-// GetUserConversations retrieves all conversations that a user participates in.
-// It returns a slice of Conversation structs, each including its id, name, members, and lastMessage (if any).
-func (db *appdbimpl) GetUserConversations(userId string) ([]Conversation, error) {
-	var conversations []Conversation
+// GetMyConversations returns the list of conversations in which userID is a member.
+func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
+	var convs []Conversation
 
-	// Query all conversation IDs that the user is a member of
+	// Query all conversation IDs for which userID is in conversation_members
 	rows, err := db.c.Query(`
-		SELECT c.id, c.name
-		FROM conversations c
-		INNER JOIN conversation_members cm ON c.id = cm.conversationId
-		WHERE cm.userId = ?
-	`, userId)
+        SELECT c.id, c.name
+        FROM conversations c
+        JOIN conversation_members cm ON c.id = cm.conversationId
+        WHERE cm.userId = ?
+        -- OPTIONAL: you can ORDER BY last message timestamp if desired
+        -- ORDER BY (SELECT MAX(timestamp) FROM messages WHERE conversationId = c.id) DESC
+    `, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetMyConversations query error: %w", err)
 	}
 	defer rows.Close()
 
@@ -28,165 +29,81 @@ func (db *appdbimpl) GetUserConversations(userId string) ([]Conversation, error)
 			return nil, err
 		}
 
-		// Fetch members of the conversation
-		members, err := db.getConversationMembers(conv.Id)
-		if err != nil {
-			return nil, err
+		// Fill the Members slice
+		members, memErr := db.getConversationMembers(conv.Id)
+		if memErr != nil {
+			return nil, memErr
 		}
 		conv.Members = members
 
-		// Fetch the last message of the conversation, if any
-		lastMessage, err := db.getLastMessage(conv.Id)
-		if err != nil && !errors.Is(err, ErrMessageDoesNotExist) {
-			// If there's another error, return it; if no last message, just ignore
-			return nil, err
+		// Optionally fetch last message
+		lastMsg, lmErr := db.getLastMessage(conv.Id)
+		if lmErr != nil && lmErr != sql.ErrNoRows {
+			// If it's something other than "no messages" error, return it
+			return nil, lmErr
 		}
-		if lastMessage != nil {
-			convWithLast := *lastMessage
-			// Assign lastMessage to conversation, if found
-			// For the summary, we only need one message object to represent lastMessage
-			// Let's just store it as is:
-			// Depending on your ConversationDetailsSummary schema,
-			// you might need to store it differently or just assign it directly
-			// Here we assume Conversation struct has a field 'LastMessage *Message' to hold it.
-			// If not defined, update your Conversation struct accordingly.
-			// For now, let's assume we can add a field in Conversation:
-			//  LastMessage *Message `json:"lastMessage,omitempty"`
-			// Make sure to update your Conversation struct in database.go accordingly.
-			conv.LastMessage = &convWithLast
+		if lastMsg != nil {
+			conv.LastMessage = lastMsg
 		}
 
-		conversations = append(conversations, conv)
+		// We'll ignore conv.Messages here, so it remains empty unless needed
+		convs = append(convs, conv)
 	}
 
-	if rows.Err() != nil {
-		return nil, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	return conversations, nil
+	return convs, nil
 }
 
-// GetConversationById retrieves full details of a specific conversation the user is part of.
-// Returns a Conversation with id, name, members, and full messages list.
-func (db *appdbimpl) GetConversationById(conversationId, userId string) (Conversation, error) {
-	var conv Conversation
-
-	// First, check that the user is a member of this conversation
-	isMember, err := db.isUserMemberOfConversation(conversationId, userId)
-	if err != nil {
-		return conv, err
-	}
-	if !isMember {
-		return conv, ErrConversationDoesNotExist // or a custom error indicating unauthorized access
-	}
-
-	// Fetch the conversation details
-	if err := db.c.QueryRow(`SELECT id, name FROM conversations WHERE id = ?`, conversationId).Scan(&conv.Id, &conv.Name); err != nil {
-		if err == sql.ErrNoRows {
-			return conv, ErrConversationDoesNotExist
-		}
-		return conv, err
-	}
-
-	// Fetch members
-	members, err := db.getConversationMembers(conv.Id)
-	if err != nil {
-		return conv, err
-	}
-	conv.Members = members
-
-	// Fetch all messages in the conversation
-	messages, err := db.getConversationMessages(conv.Id)
-	if err != nil {
-		return conv, err
-	}
-	// Assuming Conversation has a 'Messages []Message' field.
-	conv.Messages = messages
-
-	return conv, nil
-}
-
-// getConversationMembers is a helper function to retrieve the members of a conversation.
-func (db *appdbimpl) getConversationMembers(conversationId string) ([]string, error) {
+// getConversationMembers returns the user IDs of all members in the conversation.
+func (db *appdbimpl) getConversationMembers(conversationID string) ([]string, error) {
 	var members []string
-	rows, err := db.c.Query(`SELECT userId FROM conversation_members WHERE conversationId = ?`, conversationId)
+
+	rows, err := db.c.Query(`
+        SELECT userId
+        FROM conversation_members
+        WHERE conversationId = ?
+    `, conversationID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var userId string
-		if err := rows.Scan(&userId); err != nil {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
 			return nil, err
 		}
-		members = append(members, userId)
+		members = append(members, uid)
 	}
-
-	if rows.Err() != nil {
-		return nil, rows.Err()
+	// check rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return members, nil
 }
 
-// getLastMessage retrieves the last message (chronologically) of a conversation.
-// Returns ErrMessageDoesNotExist if there are no messages.
-func (db *appdbimpl) getLastMessage(conversationId string) (*Message, error) {
+// getLastMessage returns the most recent message for a conversation, or nil if none exist.
+func (db *appdbimpl) getLastMessage(conversationID string) (*Message, error) {
 	var msg Message
 	err := db.c.QueryRow(`
-		SELECT id, senderId, content, timestamp, forwardedMessageId
-		FROM messages
-		WHERE conversationId=?
-		ORDER BY timestamp DESC
-		LIMIT 1
-	`, conversationId).Scan(&msg.Id, &msg.SenderId, &msg.Content, &msg.Timestamp, &msg.ForwardedMessage)
+        SELECT id, conversationId, senderId, content, timestamp, forwardedMessageId
+        FROM messages
+        WHERE conversationId = ?
+        ORDER BY timestamp DESC
+        LIMIT 1
+    `, conversationID).Scan(
+		&msg.Id,
+		&msg.ConversationId,
+		&msg.SenderId,
+		&msg.Content,
+		&msg.Timestamp,
+		&msg.ForwardedMessage,
+	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrMessageDoesNotExist
-		}
 		return nil, err
 	}
 	return &msg, nil
-}
-
-// getConversationMessages retrieves all messages from a conversation in reverse chronological order.
-// Returns an empty slice if no messages.
-func (db *appdbimpl) getConversationMessages(conversationId string) ([]Message, error) {
-	var msgs []Message
-	rows, err := db.c.Query(`
-		SELECT id, senderId, content, timestamp, forwardedMessageId
-		FROM messages
-		WHERE conversationId=?
-		ORDER BY timestamp DESC
-	`, conversationId)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var msg Message
-		if err := rows.Scan(&msg.Id, &msg.SenderId, &msg.Content, &msg.Timestamp, &msg.ForwardedMessage); err != nil {
-			return nil, err
-		}
-		msgs = append(msgs, msg)
-	}
-
-	if rows.Err() != nil {
-		return nil, rows.Err()
-	}
-	return msgs, nil
-}
-
-// isUserMemberOfConversation checks if a user is a member of a given conversation.
-func (db *appdbimpl) isUserMemberOfConversation(conversationId, userId string) (bool, error) {
-	var exists bool
-	if err := db.c.QueryRow(`
-		SELECT EXISTS(
-		  SELECT 1 FROM conversation_members
-		  WHERE conversationId = ? AND userId = ?
-		)`, conversationId, userId).Scan(&exists); err != nil {
-		return false, err
-	}
-	return exists, nil
 }

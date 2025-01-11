@@ -64,6 +64,8 @@ type AppDatabase interface {
 	CreateUser(u User) (User, error)
 	UpdateUserName(userId string, newName string) (User, error)
 	UpdateUserPhoto(userID string, photo []byte) error
+	SearchUsersByName(username string) ([]User, error)
+	GetMyConversations(userID string) ([]Conversation, error)
 }
 
 // appdbimpl is the internal implementation of AppDatabase.

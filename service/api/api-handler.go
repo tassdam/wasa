@@ -14,13 +14,15 @@ func (rt *_router) Handler() http.Handler {
 	// // "User" part
 	rt.router.PUT("/users/me", rt.wrap(rt.setMyUserName))
 	rt.router.PUT("/users/me/photo", rt.wrap(rt.setMyPhoto))
+	rt.router.GET("/users/search", rt.wrap(rt.searchUsers))
 
+	// ПЕРЕДЕЛАТЬ ВСЕ
 	// "Conversations" part
-	// rt.router.GET("/conversations", rt.wrap(rt.getMyConversations))
-	// rt.router.GET("/conversations/:conversationId", rt.wrap(rt.getConversation))
-	// rt.router.POST("/conversations/:conversationId/messages", rt.wrap(rt.sendMessage))
+	rt.router.GET("/conversations", rt.wrap(rt.getMyConversations))
+	//rt.router.GET("/conversations/:conversationId", rt.wrap(rt.getConversation))
+	//rt.router.POST("/conversations/:conversationId/messages", rt.wrap(rt.sendMessage))
 	// rt.router.POST("/conversations/:conversationId/messages/:messageId/forward", rt.wrap(rt.forwardMessage))
-	// rt.router.DELETE("/conversations/:conversationId/messages/:messageId", rt.wrap(rt.uncommentMessage))
+	// rt.router.DELETE("/conversations/:conversationId/messages/:messageId", rt.wrap(rt.deleteMessage))
 
 	// // "Comments" part
 	// rt.router.POST("/conversations/:conversationId/messages/:messageId/comments", rt.wrap(rt.commentMessage))

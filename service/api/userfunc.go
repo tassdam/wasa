@@ -146,3 +146,38 @@ func (rt *_router) getAuthenticatedUserID(r *http.Request) (string, error) {
 	}
 	return userID, nil
 }
+
+// searchUsers handles GET /users/search to search for users by a partial username match.
+func (rt *_router) searchUsers(
+	w http.ResponseWriter,
+	r *http.Request,
+	ps httprouter.Params,
+	ctx reqcontext.RequestContext,
+) {
+	// 1. Get the search query from the URL
+	query := r.URL.Query().Get("username")
+	if query == "" {
+		http.Error(w, "Missing 'username' query parameter", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Query the database for matching users
+	users, err := rt.db.SearchUsersByName(query)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to search users")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(users) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode([]User{}) // Return an empty array instead of null
+		return
+	}
+
+	// 3. Return the results as JSON
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(users)
+}
