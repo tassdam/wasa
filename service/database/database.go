@@ -6,15 +6,11 @@ import (
 	"fmt"
 )
 
-// Define errors similar to the other student's code, adjusted for WASAText domain
 var ErrUserDoesNotExist = errors.New("User does not exist")
 var ErrConversationDoesNotExist = errors.New("Conversation does not exist")
 var ErrMessageDoesNotExist = errors.New("Message does not exist")
 var ErrCommentDoesNotExist = errors.New("Comment does not exist")
-var ErrGroupDoesNotExist = errors.New("Group does not exist")
-var ErrGroupMemberDoesNotExist = errors.New("Group member does not exist")
 
-// Define models as per your WASAText specification
 type User struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
@@ -22,20 +18,24 @@ type User struct {
 }
 
 type Conversation struct {
-	Id          string    `json:"id"`
-	Name        string    `json:"name"`
-	Members     []string  `json:"members"`
-	LastMessage *Message  `json:"lastMessage,omitempty"` // Add this line
-	Messages    []Message `json:"messages,omitempty"`    // If you have full messages as well
+	Id                string         `json:"id"`
+	Name              string         `json:"name"`
+	Type              string         `json:"type"`      // 'direct' or 'group'
+	CreatedAt         string         `json:"createdAt"` // Timestamp of conversation creation
+	Members           []string       `json:"members"`
+	LastMessage       *Message       `json:"lastMessage,omitempty"`
+	Messages          []Message      `json:"messages,omitempty"`
+	ConversationPhoto sql.NullString `json:"conversationPhoto,omitempty"`
 }
 
 type Message struct {
 	Id               string  `json:"id"`
-	ConversationId   string  `json:"conversationId"` // Add this line
+	ConversationId   string  `json:"conversationId"`
 	SenderId         string  `json:"senderId"`
 	Content          string  `json:"content"`
 	Timestamp        string  `json:"timestamp"`
 	ForwardedMessage *string `json:"forwardedMessageId,omitempty"`
+	Attachment       []byte  `json:"attachment,omitempty"` // Binary data for photos or GIFs
 }
 
 type Comment struct {
@@ -45,14 +45,11 @@ type Comment struct {
 	Timestamp string `json:"timestamp"`
 }
 
-type Group struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-}
-
-type GroupMember struct {
-	UserId   string `json:"userId"`
-	JoinedAt string `json:"joinedAt"`
+type ReadReceipt struct {
+	MessageId   string  `json:"messageId"`
+	UserId      string  `json:"userId"`
+	DeliveredAt string  `json:"deliveredAt"`
+	ReadAt      *string `json:"readAt,omitempty"` // Nullable for messages not yet read
 }
 
 // AppDatabase is the high-level interface for the DB operations.
@@ -65,7 +62,16 @@ type AppDatabase interface {
 	UpdateUserName(userId string, newName string) (User, error)
 	UpdateUserPhoto(userID string, photo []byte) error
 	SearchUsersByName(username string) ([]User, error)
+	GetDirectConversation(senderID, recipientID string) (string, error)
+	CreateDirectConversation(conversationID, senderID, recipientID string) error
+	SaveMessage(conversationID, senderID, messageID, content string, forwardedMessageID *string, attachment []byte) (Message, error)
+	InsertDeliveryReceipt(messageID, userID, deliveredAt string) error
+	IsUserInConversation(conversationID, userID string) (bool, error)
+	GetConversationDetails(conversationID string) (Conversation, error)
+	GetMessagesForConversation(conversationID string) ([]Message, error)
 	GetMyConversations(userID string) ([]Conversation, error)
+	GetConversationMembers(conversationID string) ([]string, error)
+	GetUsersPhoto(userID string) (User, error)
 }
 
 // appdbimpl is the internal implementation of AppDatabase.
@@ -100,7 +106,10 @@ func New(db *sql.DB) (AppDatabase, error) {
 
 		conversationsTable := `CREATE TABLE conversations (
 			id TEXT NOT NULL PRIMARY KEY,
-			name TEXT NOT NULL
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			conversationPhoto BLOB
 		);`
 
 		conversationMembersTable := `CREATE TABLE conversation_members (
@@ -118,6 +127,7 @@ func New(db *sql.DB) (AppDatabase, error) {
 			content TEXT NOT NULL,
 			timestamp TEXT NOT NULL,
 			forwardedMessageId TEXT,
+			attachment BLOB,
 			FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE
 		);`
@@ -132,31 +142,24 @@ func New(db *sql.DB) (AppDatabase, error) {
 			FOREIGN KEY (authorId) REFERENCES users(id) ON DELETE CASCADE
 		);`
 
-		groupsTable := `CREATE TABLE groups (
-			id TEXT NOT NULL PRIMARY KEY,
-			name TEXT NOT NULL
-		);`
-
-		groupMembersTable := `CREATE TABLE group_members (
-			groupId TEXT NOT NULL,
+		readReceiptsTable := `CREATE TABLE read_receipts (
+			messageId TEXT NOT NULL,
 			userId TEXT NOT NULL,
-			joinedAt TEXT NOT NULL,
-			FOREIGN KEY (groupId) REFERENCES groups(id) ON DELETE CASCADE,
-			FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-			PRIMARY KEY (groupId, userId)
+			deliveredAt TEXT NOT NULL,
+			readAt TEXT, -- Nullable
+			PRIMARY KEY (messageId, userId),
+			FOREIGN KEY (messageId) REFERENCES messages(id) ON DELETE CASCADE,
+			FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 		);`
 
-		// Execute the table creation statements
 		creationQueries := []string{
 			usersTable,
 			conversationsTable,
 			conversationMembersTable,
 			messagesTable,
 			commentsTable,
-			groupsTable,
-			groupMembersTable,
+			readReceiptsTable, // Add the read_receipts table
 		}
-
 		for _, q := range creationQueries {
 			_, execErr := db.Exec(q)
 			if execErr != nil {

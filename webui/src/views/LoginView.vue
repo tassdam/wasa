@@ -1,66 +1,120 @@
 <script>
 export default {
-    components: {},
-    data: function () {
-        return {
-            errormsg: null,
-            name: "",
-            profile: {
-                id: 0,
-                name: "",
-            },
+  data() {
+    return {
+      errormsg: null,
+      name: "", // Using 'name' instead of 'username'
+      profile: {
+        id: "",
+        name: "",
+      },
+    };
+  },
+  methods: {
+    async doLogin() {
+      if (this.name.trim() === "") {
+        this.errormsg = "Name cannot be empty.";
+        return;
+      }
+
+      try {
+        const response = await this.$axios.post("/session", {
+          name: this.name, // Sending 'name' to the server
+        });
+
+        console.log("Login Response:", response.data); // Debugging response
+
+        // Adjusted to map the actual server response
+        if (response.data.identifier) {
+          this.profile.id = response.data.identifier;
+          this.profile.name = this.name; // Using 'name'
+        } else {
+          throw new Error("Unexpected server response. Missing 'identifier'.");
         }
-    },
-    methods: {
-        async doLogin() {
-            if (this.name == "") {
-                this.errormsg = "Username cannot be empty.";
-            } else {
-                try {
-                    let response = await this.$axios.post("/session", { name: this.name })
-                    this.profile = response.data
-                    localStorage.setItem("token", this.profile.id);
-                    localStorage.setItem("name", this.profile.name);
-                    this.$router.push({ path: '/home' })
-                } catch (e) {
-                    if (e.response && e.response.status === 400) {
-                        this.errormsg = "Form error, please check all fields and try again. If you think that this is an error, write an e-mail to us.";
-                        this.detailedmsg = null;
-                    } else if (e.response && e.response.status === 500) {
-                        this.errormsg = "An internal error occurred. We will be notified. Please try again later.";
-                        this.detailedmsg = e.toString();
-                    } else {
-                        this.errormsg = e.toString();
-                        this.detailedmsg = null;
-                    }
-                }
-            }
 
+        // Save authentication info
+        localStorage.setItem("token", this.profile.id);
+        localStorage.setItem("name", this.profile.name);
+
+        // Redirect to home after login
+        this.$router.push({ path: "/home" });
+      } catch (e) {
+        if (e.response && e.response.status === 400) {
+          this.errormsg =
+            "Form error, please check all fields and try again.";
+        } else if (e.response && e.response.status === 500) {
+          this.errormsg =
+            "An internal error occurred. Please try again later.";
+        } else {
+          this.errormsg = e.toString();
         }
+      }
     },
-    mounted() {
-
-    }
-
-}
+  },
+};
 </script>
 
 <template>
-    <div
-        class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-        <h1 class="h2">Welcome to WASAText</h1>
-    </div>
-    <div class="input-group mb-3">
-        <input type="text" id="name" v-model="name" class="form-control"
-            placeholder="Insert a username to log in WASAText." aria-label="Your username"
-            aria-describedby="basic-addon2">
-        <div class="input-group-append">
-            <button class="btn btn-success" type="button" @click="doLogin">Login</button>
-        </div>
+  <div class="login-container">
+    <h1 class="login-title">Welcome to WASAText</h1>
+    <div class="input-group">
+      <input
+        type="text"
+        id="name"
+        v-model="name"
+        class="login-input"
+        placeholder="Insert your name to log in WASAText."
+      />
+      <button class="login-button" type="button" @click="doLogin">Login</button>
     </div>
     <ErrorMsg v-if="errormsg" :msg="errormsg"></ErrorMsg>
+  </div>
 </template>
 
-<style>
+<style scoped>
+.login-container {
+  max-width: 400px;
+  margin: 100px auto;
+  text-align: center;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
 
+.login-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-input {
+  padding: 10px;
+  width: 100%;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.login-button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.login-button:hover {
+  background-color: #0056b3;
+}
 </style>

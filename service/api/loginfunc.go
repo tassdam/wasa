@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gofrs/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/tassdam/wasa/service/api/reqcontext"
 	"github.com/tassdam/wasa/service/database"
@@ -71,13 +70,4 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
 
-}
-
-// generateNewID uses github.com/gofrs/uuid to generate a unique user ID.
-func generateNewID() (string, error) {
-	uid, err := uuid.NewV4()
-	if err != nil {
-		return "", err
-	}
-	return uid.String(), nil
 }

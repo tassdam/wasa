@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 // CreateUser inserts a new user into the database.
@@ -113,4 +114,19 @@ func (db *appdbimpl) SearchUsersByName(username string) ([]User, error) {
 
 	// Return an empty array if no results
 	return users, nil
+}
+
+func (db *appdbimpl) GetUsersPhoto(userID string) (User, error) {
+	var user User
+	err := db.c.QueryRow(`
+		SELECT id, name, photo 
+		FROM users 
+		WHERE id = ?
+	`, userID).Scan(&user.Id, &user.Name, &user.Photo)
+	if err == sql.ErrNoRows {
+		return User{}, ErrUserDoesNotExist
+	} else if err != nil {
+		return User{}, fmt.Errorf("error fetching user by ID: %w", err)
+	}
+	return user, nil
 }

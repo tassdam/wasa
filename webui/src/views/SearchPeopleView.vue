@@ -34,7 +34,7 @@
           </h5>
           <button
             class="text-button"
-            @click="navigateToConversation(user.id)"
+            @click="navigateToConversation(user.id, user.name)"
           >
             Text
           </button>
@@ -97,10 +97,22 @@ export default {
     viewProfile(username) {
       this.$router.push(`/profile/${username}`);
     },
-    navigateToConversation(userId) {
-      // Navigate to the conversation page using the user's UUID
-      this.$router.push({ path: `/conversations/${userId}` });
-    },
+    navigateToConversation(recipientId, recipientName) {
+      localStorage.setItem("recipientId", recipientId);
+      localStorage.setItem("recipientName", recipientName);
+      const senderId = localStorage.getItem("token"); // Get the sender's ID from local storage
+      axios
+        .post(`/conversations`, { senderId, recipientId })
+        .then((response) => {
+          const conversationId = response.data.conversationId; // Backend returns conversationId
+          this.$router.push({
+            path: `/conversations/${conversationId}`
+          });
+        })
+        .catch((error) => {
+          console.error("Error starting conversation:", error);
+        });
+    }
   },
 };
 </script>

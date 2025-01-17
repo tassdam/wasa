@@ -2,124 +2,109 @@
 export default {
   data() {
     return {
+      username: "", // Store the logged-in user's name
       errormsg: null,
       loading: false,
-      some_data: null,
-      conversations: []  // We'll store the list of convos here
-    }
+      conversations: [] // Store the list of conversations
+    };
   },
   methods: {
     async loadConversations() {
-      this.errormsg = null
-      this.loading = true
+      this.errormsg = null;
+      this.loading = true;
+
       try {
-        // If user is not logged in, you might not have 'token' in localStorage
-        const token = localStorage.getItem("token")
+        // Get the token from localStorage
+        const token = localStorage.getItem("token");
         if (!token) {
-          // Show a message but do NOT redirect or vanish the UI
-          this.errormsg = "No token found - are you sure you are logged in?"
-          this.loading = false
-          return
+          this.errormsg = "No token found. Are you sure you are logged in?";
+          this.loading = false;
+          return;
         }
 
-        // Attempt the request
-        let response = await this.$axios.get("/conversations", {
+        // Fetch conversations from the server
+        const response = await this.$axios.get("/users/me/conversations", {
           headers: {
-            Authorization: "Bearer " + token
+            Authorization: `Bearer ${token}`
           }
-        })
-        this.conversations = response.data || []
-      } catch (e) {
-        console.error("loadConversations error:", e)
-        // Show the error in a visible spot
-        this.errormsg = "Failed to load conversations: " + e.toString()
-      }
-      this.loading = false
-    },
+        });
 
-    // Optional placeholders
+        // Update conversations
+        this.conversations = response.data || [];
+      } catch (error) {
+        console.error("Error loading conversations:", error);
+        this.errormsg = "Failed to load conversations. Please try again.";
+      } finally {
+        this.loading = false;
+      }
+    },
+    viewConversation(conversationId, conversationName) {
+      // Redirect to the conversation page
+      
+      this.$router.push({
+        path: `/conversations/${conversationId}`
+      });
+    },
+    refresh() {
+      console.log("Refresh triggered");
+      this.loadConversations(); // Reload conversations
+    },
     exportList() {
-      console.log("Export triggered")
+      console.log("Export triggered");
     },
     newItem() {
-      console.log("New item triggered")
+      console.log("New item triggered");
     }
   },
   mounted() {
-    // 1) run your existing refresh
-    this.refresh()
-
-    // 2) load convos automatically
-    this.loadConversations()
+    // Retrieve the username and load conversations on mount
+    this.username = localStorage.getItem("name") || "Guest";
+    this.loadConversations();
   }
-}
+};
 </script>
 
 <template>
   <div>
     <!-- Top bar -->
-    <div
-      class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom"
-    >
-      <h1 class="h2">Home page</h1>
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+      <h1 class="h2">Home Page</h1>
+      <p class="username-display">Welcome, {{ username }}!</p>
       <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            @click="refresh"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary"
-            @click="exportList"
-          >
-            Export
-          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="refresh">Refresh</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="exportList">Export</button>
         </div>
         <div class="btn-group me-2">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary"
-            @click="newItem"
-          >
-            New
-          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" @click="newItem">New</button>
         </div>
       </div>
     </div>
 
-    <!-- Show any error message -->
+    <!-- Error Message -->
     <ErrorMsg v-if="errormsg" :msg="errormsg" />
 
-    <!-- Show the "some_data" from refresh() if it exists -->
-    <div v-if="some_data">
-      <p>some_data: {{ some_data }}</p>
-    </div>
-
-    <!-- Show conversation list (if any) -->
+    <!-- Conversations List -->
     <div>
       <h3>My Conversations</h3>
-      <!-- If loading is true, you can optionally show some spinner -->
+
+      <!-- Loading Spinner -->
       <p v-if="loading">Loading...</p>
 
-      <!-- If not loading but no convos, show a note -->
+      <!-- No Conversations Message -->
       <div v-else-if="conversations.length === 0">
         <p>No conversations found.</p>
       </div>
 
-      <!-- Otherwise list them -->
+      <!-- Conversations -->
       <ul v-else>
-        <li
-          v-for="conv in conversations"
-          :key="conv.id"
-        >
-          <strong>{{ conv.name }}</strong> - members: {{ conv.members.join(", ") }}
+        <li v-for="conv in conversations" :key="conv.id">
+          <strong @click="viewConversation(conv.id, conv.name)" style="cursor: pointer; color: #007bff;">
+            {{ conv.name }}
+          </strong> 
           <div v-if="conv.lastMessage">
             Last message: {{ conv.lastMessage.content }} 
-            at {{ conv.lastMessage.timestamp }}
+            at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
           </div>
         </li>
       </ul>
@@ -128,5 +113,11 @@ export default {
 </template>
 
 <style>
-/* optional styling */
+/* Add styling for the username display */
+.username-display {
+  font-size: 16px;
+  color: #555;
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
 </style>

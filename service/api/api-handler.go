@@ -11,16 +11,19 @@ func (rt *_router) Handler() http.Handler {
 	// "Login" part
 	rt.router.POST("/session", rt.wrap(rt.doLogin))
 
-	// // "User" part
+	// "User" part
+	rt.router.GET("/users", rt.wrap(rt.getMyPhoto))
 	rt.router.PUT("/users/me", rt.wrap(rt.setMyUserName))
 	rt.router.PUT("/users/me/photo", rt.wrap(rt.setMyPhoto))
 	rt.router.GET("/users/search", rt.wrap(rt.searchUsers))
 
-	// ПЕРЕДЕЛАТЬ ВСЕ
 	// "Conversations" part
-	rt.router.GET("/conversations", rt.wrap(rt.getMyConversations))
-	//rt.router.GET("/conversations/:conversationId", rt.wrap(rt.getConversation))
-	//rt.router.POST("/conversations/:conversationId/messages", rt.wrap(rt.sendMessage))
+	rt.router.GET("/users/me/conversations", rt.wrap(rt.getMyConversations))
+	rt.router.POST("/conversations", rt.wrap(rt.startConversation))
+	rt.router.GET("/conversations/:conversationId", rt.wrap(rt.getConversation))
+
+	// "Messages" part
+	rt.router.POST("/conversations/:conversationId/messages", rt.wrap(rt.sendMessage))
 	// rt.router.POST("/conversations/:conversationId/messages/:messageId/forward", rt.wrap(rt.forwardMessage))
 	// rt.router.DELETE("/conversations/:conversationId/messages/:messageId", rt.wrap(rt.deleteMessage))
 

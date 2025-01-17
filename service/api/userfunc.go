@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -88,48 +89,63 @@ func (rt *_router) setMyPhoto(
 		return
 	}
 
-	// 3. Read the entire photo (binary data) from the request body.
-	photo, err := io.ReadAll(r.Body)
+	// 3. Parse the multipart form (max size: 10MB).
+	err = r.ParseMultipartForm(10 * 1024 * 1024) // 10 MB limit
 	if err != nil {
-		http.Error(w, "Failed to read photo", http.StatusBadRequest)
+		http.Error(w, "Failed to parse form. Ensure the file is below 10 MB.", http.StatusBadRequest)
 		return
 	}
 
-	// 4. Optional: Validate photo content size/type if needed.
-	if len(photo) == 0 {
-		http.Error(w, "Empty photo", http.StatusBadRequest)
+	// 4. Retrieve the file from the form.
+	file, fileHeader, err := r.FormFile("photo") // "photo" is the form field name
+	if err != nil {
+		http.Error(w, "Failed to retrieve photo file", http.StatusBadRequest)
 		return
 	}
-	// Suppose your OpenAPI says max 10 MB:
-	if len(photo) > 10*1024*1024 {
-		http.Error(w, "Photo too large", http.StatusRequestEntityTooLarge)
-		return
-	}
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "image/png" && contentType != "image/jpeg" {
-		http.Error(w, "Invalid content type", http.StatusUnsupportedMediaType)
+	defer file.Close()
+
+	// 5. Read the file into a byte slice.
+	photoData, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Failed to read photo file", http.StatusInternalServerError)
 		return
 	}
 
-	// 5. Update the photo in the database.
-	if dbErr := rt.db.UpdateUserPhoto(userID, photo); dbErr == database.ErrUserDoesNotExist {
+	// 6. Validate file size (ensure it's within the limit).
+	if len(photoData) > 10*1024*1024 { // 10 MB
+		http.Error(w, "Photo too large. Maximum allowed size is 10 MB.", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	// 7. Validate file type.
+	fileType := http.DetectContentType(photoData)
+	if fileType != "image/jpeg" && fileType != "image/png" {
+		http.Error(w, "Invalid file type. Only JPEG and PNG are supported.", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	// Log file details for debugging (optional)
+	ctx.Logger.Infof("Received file: %s, size: %d bytes, type: %s", fileHeader.Filename, len(photoData), fileType)
+
+	// 8. Update the photo in the database.
+	err = rt.db.UpdateUserPhoto(userID, photoData)
+	if err == database.ErrUserDoesNotExist {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
-	} else if dbErr != nil {
-		ctx.Logger.WithError(dbErr).Error("failed to update user photo")
+	} else if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to update user photo")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	// 6. Respond with a success message. Adjust structure to match your OpenAPI.
+	// 9. Respond with a success message.
 	response := map[string]string{
 		"message": "Photo updated successfully",
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		ctx.Logger.WithError(err).Error("failed to encode photo update response")
-		// Decide if you want to handle this error more thoroughly.
+		ctx.Logger.WithError(err).Error("Failed to encode photo update response")
 	}
 }
 
@@ -180,4 +196,47 @@ func (rt *_router) searchUsers(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(users)
+}
+
+func (rt *_router) getMyPhoto(
+	w http.ResponseWriter,
+	r *http.Request,
+	ps httprouter.Params,
+	ctx reqcontext.RequestContext,
+) {
+	// 1. Get the authenticated user ID from the Authorization header
+	userID, err := rt.getAuthenticatedUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// 2. Query the database to get the user's photo
+	user, dbErr := rt.db.GetUsersPhoto(userID)
+	if dbErr == database.ErrUserDoesNotExist {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	} else if dbErr != nil {
+		ctx.Logger.WithError(dbErr).Error("Failed to fetch user details")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Construct the response
+	response := map[string]interface{}{
+		"name":  user.Name,
+		"photo": nil,
+	}
+
+	// Encode the photo as base64 if it exists
+	if user.Photo != nil {
+		response["photo"] = base64.StdEncoding.EncodeToString(user.Photo)
+	}
+
+	// 4. Respond with the user's photo and name
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		ctx.Logger.WithError(err).Error("Failed to encode user response")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

@@ -3,107 +3,293 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
-// GetMyConversations returns the list of conversations in which userID is a member.
-func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
-	var convs []Conversation
+func (db *appdbimpl) GetDirectConversation(senderID, recipientID string) (string, error) {
+	var conversationID string
 
-	// Query all conversation IDs for which userID is in conversation_members
-	rows, err := db.c.Query(`
-        SELECT c.id, c.name
-        FROM conversations c
-        JOIN conversation_members cm ON c.id = cm.conversationId
-        WHERE cm.userId = ?
-        -- OPTIONAL: you can ORDER BY last message timestamp if desired
-        -- ORDER BY (SELECT MAX(timestamp) FROM messages WHERE conversationId = c.id) DESC
-    `, userID)
+	// Query for existing direct conversation
+	err := db.c.QueryRow(`
+		SELECT id
+		FROM conversations
+		WHERE type = 'direct'
+		  AND id IN (
+		      SELECT conversationId FROM conversation_members WHERE userId = ?
+		      INTERSECT
+		      SELECT conversationId FROM conversation_members WHERE userId = ?
+		  )
+	`, senderID, recipientID).Scan(&conversationID)
+
+	if err == sql.ErrNoRows {
+		return "", nil // No conversation exists
+	}
 	if err != nil {
-		return nil, fmt.Errorf("GetMyConversations query error: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var conv Conversation
-		if err := rows.Scan(&conv.Id, &conv.Name); err != nil {
-			return nil, err
-		}
-
-		// Fill the Members slice
-		members, memErr := db.getConversationMembers(conv.Id)
-		if memErr != nil {
-			return nil, memErr
-		}
-		conv.Members = members
-
-		// Optionally fetch last message
-		lastMsg, lmErr := db.getLastMessage(conv.Id)
-		if lmErr != nil && lmErr != sql.ErrNoRows {
-			// If it's something other than "no messages" error, return it
-			return nil, lmErr
-		}
-		if lastMsg != nil {
-			conv.LastMessage = lastMsg
-		}
-
-		// We'll ignore conv.Messages here, so it remains empty unless needed
-		convs = append(convs, conv)
+		return "", fmt.Errorf("error checking conversation: %w", err)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return convs, nil
+	return conversationID, nil // Return the existing conversation ID
 }
 
-// getConversationMembers returns the user IDs of all members in the conversation.
-func (db *appdbimpl) getConversationMembers(conversationID string) ([]string, error) {
-	var members []string
+func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipientID string) error {
+	// Insert a new conversation
 
-	rows, err := db.c.Query(`
-        SELECT userId
-        FROM conversation_members
-        WHERE conversationId = ?
-    `, conversationID)
+	_, err := db.c.Exec(`
+		INSERT INTO conversations (id, name, type, created_at, conversationPhoto)
+		VALUES (?, '', 'direct', ?, '')
+	`, conversationID, time.Now().Format(time.RFC3339))
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error creating new conversation: %w", err)
+	}
+
+	// Add both users to the conversation
+	_, err = db.c.Exec(`
+		INSERT INTO conversation_members (conversationId, userId)
+		VALUES (?, ?), (?, ?)
+	`, conversationID, senderID,
+		conversationID, recipientID)
+	if err != nil {
+		return fmt.Errorf("error adding members to conversation_members: %w", err)
+	}
+
+	return nil
+}
+
+func (db *appdbimpl) SaveMessage(
+	conversationID, senderID, messageID, content string,
+	forwardedMessageID *string, attachment []byte,
+) (Message, error) {
+	// Check if the conversation exists
+	var conversationExists bool
+	err := db.c.QueryRow(`SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?)`, conversationID).Scan(&conversationExists)
+	if err != nil {
+		return Message{}, fmt.Errorf("error checking conversation existence: %w", err)
+	}
+	if !conversationExists {
+		return Message{}, ErrConversationDoesNotExist
+	}
+
+	// Insert the message into the database
+	timestamp := time.Now().Format(time.RFC3339)
+	_, err = db.c.Exec(`
+		INSERT INTO messages (id, conversationId, senderId, content, timestamp, forwardedMessageId, attachment)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, messageID, conversationID, senderID, content, timestamp, forwardedMessageID, attachment)
+	if err != nil {
+		return Message{}, fmt.Errorf("error saving message: %w", err)
+	}
+
+	// Return the saved message
+	return Message{
+		Id:               messageID,
+		ConversationId:   conversationID,
+		SenderId:         senderID,
+		Content:          content,
+		Timestamp:        timestamp,
+		ForwardedMessage: forwardedMessageID,
+		Attachment:       attachment,
+	}, nil
+}
+
+func (db *appdbimpl) GetConversationMembers(conversationID string) ([]string, error) {
+	rows, err := db.c.Query(`
+		SELECT userId
+		FROM conversation_members
+		WHERE conversationId = ?
+	`, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching conversation members: %w", err)
 	}
 	defer rows.Close()
 
+	var members []string
 	for rows.Next() {
-		var uid string
-		if err := rows.Scan(&uid); err != nil {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
 			return nil, err
 		}
-		members = append(members, uid)
-	}
-	// check rows.Err()
-	if err := rows.Err(); err != nil {
-		return nil, err
+		members = append(members, userID)
 	}
 	return members, nil
 }
 
-// getLastMessage returns the most recent message for a conversation, or nil if none exist.
-func (db *appdbimpl) getLastMessage(conversationID string) (*Message, error) {
-	var msg Message
-	err := db.c.QueryRow(`
-        SELECT id, conversationId, senderId, content, timestamp, forwardedMessageId
-        FROM messages
-        WHERE conversationId = ?
-        ORDER BY timestamp DESC
-        LIMIT 1
-    `, conversationID).Scan(
-		&msg.Id,
-		&msg.ConversationId,
-		&msg.SenderId,
-		&msg.Content,
-		&msg.Timestamp,
-		&msg.ForwardedMessage,
-	)
+func (db *appdbimpl) InsertDeliveryReceipt(messageID, userID, deliveredAt string) error {
+	_, err := db.c.Exec(`
+		INSERT INTO read_receipts (messageId, userId, deliveredAt)
+		VALUES (?, ?, ?)
+	`, messageID, userID, deliveredAt)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("error inserting delivery receipt: %w", err)
 	}
-	return &msg, nil
+	return nil
+}
+
+func (db *appdbimpl) IsUserInConversation(conversationID, userID string) (bool, error) {
+	var exists bool
+	err := db.c.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1
+			FROM conversation_members
+			WHERE conversationId = ? AND userId = ?
+		)
+	`, conversationID, userID).Scan(&exists)
+
+	if err != nil {
+		return false, fmt.Errorf("error checking user membership: %w", err)
+	}
+	return exists, nil
+}
+
+func (db *appdbimpl) GetConversationDetails(conversationID string) (Conversation, error) {
+	var conversation Conversation
+
+	// Fetch basic conversation details
+	err := db.c.QueryRow(`
+		SELECT id, name, type, created_at
+		FROM conversations
+		WHERE id = ?
+	`, conversationID).Scan(&conversation.Id, &conversation.Name, &conversation.Type, &conversation.CreatedAt)
+	if err == sql.ErrNoRows {
+		return Conversation{}, ErrConversationDoesNotExist
+	}
+	if err != nil {
+		return Conversation{}, fmt.Errorf("error fetching conversation details: %w", err)
+	}
+
+	// Fetch members of the conversation
+	members, err := db.GetConversationMembers(conversationID)
+	if err != nil {
+		return Conversation{}, fmt.Errorf("error fetching conversation members: %w", err)
+	}
+	conversation.Members = members
+
+	// Fetch messages in the conversation
+	messages, err := db.GetMessagesForConversation(conversationID)
+	if err != nil {
+		return Conversation{}, fmt.Errorf("error fetching conversation messages: %w", err)
+	}
+	conversation.Messages = messages
+
+	return conversation, nil
+}
+
+func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Message, error) {
+	rows, err := db.c.Query(`
+		SELECT id, conversationId, senderId, content, timestamp, forwardedMessageId, attachment
+		FROM messages
+		WHERE conversationId = ?
+		ORDER BY timestamp ASC
+	`, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching messages: %w", err)
+	}
+	defer rows.Close()
+
+	var messages []Message
+	for rows.Next() {
+		var message Message
+		var forwardedMessage sql.NullString
+		if err := rows.Scan(
+			&message.Id,
+			&message.ConversationId,
+			&message.SenderId,
+			&message.Content,
+			&message.Timestamp,
+			&forwardedMessage,
+			&message.Attachment,
+		); err != nil {
+			return nil, err
+		}
+		if forwardedMessage.Valid {
+			message.ForwardedMessage = &forwardedMessage.String
+		}
+		messages = append(messages, message)
+	}
+	return messages, nil
+}
+
+func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
+	query := `
+	SELECT 
+		c.id,
+		CASE 
+			WHEN c.type = 'direct' THEN 
+				(SELECT u.name 
+				 FROM users u 
+				 JOIN conversation_members cm2 
+				 ON u.id = cm2.userId 
+				 WHERE cm2.conversationId = c.id AND u.id != ?)
+			ELSE c.name
+		END AS conversation_name,
+		c.type,
+		c.created_at,
+		c.conversationPhoto,
+		m.id AS last_message_id,
+		m.content AS last_message_content,
+		m.timestamp AS last_message_timestamp,
+		u.name AS last_message_sender
+	FROM conversations c
+	JOIN conversation_members cm ON c.id = cm.conversationId
+	LEFT JOIN messages m ON m.id = (
+		SELECT id
+		FROM messages
+		WHERE conversationId = c.id
+		ORDER BY timestamp DESC
+		LIMIT 1
+	)
+	LEFT JOIN users u ON u.id = m.senderId
+	WHERE cm.userId = ?
+	ORDER BY last_message_timestamp DESC;
+	`
+
+	rows, err := db.c.Query(query, userID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching conversations: %w", err)
+	}
+	defer rows.Close()
+
+	var conversations []Conversation
+	for rows.Next() {
+		var conv Conversation
+		var lastMessage Message
+		var lastMessageTimestamp sql.NullString // Handle nullable timestamp
+		var lastMessageContent sql.NullString   // Handle nullable content
+		var lastMessageSender sql.NullString    // Handle nullable sender name
+
+		err := rows.Scan(
+			&conv.Id,
+			&conv.Name,
+			&conv.Type,
+			&conv.CreatedAt,
+			&conv.ConversationPhoto,
+			&lastMessage.Id,
+			&lastMessageContent,
+			&lastMessageTimestamp,
+			&lastMessageSender,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning conversation: %w", err)
+		}
+
+		// Map nullable values to LastMessage
+		if lastMessageTimestamp.Valid || lastMessageContent.Valid || lastMessageSender.Valid {
+			conv.LastMessage = &Message{
+				Id:        lastMessage.Id,
+				Content:   lastMessageContent.String,
+				Timestamp: lastMessageTimestamp.String,
+				SenderId:  lastMessageSender.String,
+			}
+		}
+
+		// Fetch conversation members
+		members, err := db.GetConversationMembers(conv.Id)
+		if err != nil {
+			return nil, err
+		}
+		conv.Members = members
+
+		conversations = append(conversations, conv)
+	}
+
+	return conversations, nil
 }

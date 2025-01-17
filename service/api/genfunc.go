@@ -1,8 +1,10 @@
 package api
 
 import (
-	"github.com/julienschmidt/httprouter"
 	"net/http"
+
+	"github.com/gofrs/uuid"
+	"github.com/julienschmidt/httprouter"
 )
 
 func (rt *_router) Close() error {
@@ -16,4 +18,12 @@ func (rt *_router) liveness(w http.ResponseWriter, r *http.Request, ps httproute
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func generateNewID() (string, error) {
+	uid, err := uuid.NewV4()
+	if err != nil {
+		return "", err
+	}
+	return uid.String(), nil
 }
