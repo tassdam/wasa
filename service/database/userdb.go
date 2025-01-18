@@ -9,13 +9,12 @@ import (
 // Assumes u.Id is already set and unique, and u.Name is the username.
 // Returns the user on success, or ErrUserDoesNotExist if something unexpected happens.
 func (db *appdbimpl) CreateUser(u User) (User, error) {
-	_, err := db.c.Exec("INSERT INTO users(id, name) VALUES (?, ?)", u.Id, u.Name)
+	_, err := db.c.Exec("INSERT INTO users(id, name, photo) VALUES (?, ?, ?)", u.Id, u.Name, u.Photo)
 	if err != nil {
 		// Check if user already exists
 		var existing User
 		if errCheck := db.c.QueryRow("SELECT id, name FROM users WHERE name = ?", u.Name).Scan(&existing.Id, &existing.Name); errCheck != nil {
 			if errCheck == sql.ErrNoRows {
-				// Insertion failed and user not found - return the original error
 				return u, err
 			}
 		}

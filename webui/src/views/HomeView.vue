@@ -40,6 +40,16 @@ export default {
         path: `/conversations/${conversationId}`
       });
     },
+    truncateText(text, length = 100, clamp = '...') {
+      if (text.length <= length) {
+        return text;
+      }
+      let truncated = text.slice(0, length).split(' ');
+      if (truncated.length > 0 && text.length > length) {
+        truncated.pop();
+      }
+      return truncated.join(' ') + clamp;
+    },
     refresh() {
       this.loadConversations(); // Reload conversations
     },
@@ -50,6 +60,7 @@ export default {
       console.log("New item triggered");
     }
   },
+  
   mounted() {
     this.username = localStorage.getItem("name") || "Guest";
     this.loadConversations();
@@ -59,8 +70,9 @@ export default {
 
 <template>
   <div>
+    <!-- Existing header and buttons -->
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-      <h1 class="h2">Home Page</h1>
+      <h1 class="h2">My Conversations</h1>
       <p class="username-display">Welcome, {{ username }}!</p>
       <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
@@ -72,32 +84,29 @@ export default {
         </div>
       </div>
     </div>
-
     <ErrorMsg v-if="errormsg" :msg="errormsg" />
-
     <div>
-      <h3>My Conversations</h3>
-
       <p v-if="loading">Loading...</p>
-
       <div v-else-if="conversations.length === 0">
         <p>No conversations found.</p>
       </div>
-
-      <ul v-else>
-        <li v-for="conv in conversations" :key="conv.id">
-          <strong @click="viewConversation(conv.id, conv.name)" style="cursor: pointer; color: #007bff;">
-            {{ conv.name }}
-          </strong> 
-          <div v-if="conv.lastMessage">
-            Last message: {{ conv.lastMessage.content }} 
-            at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
-          </div>
-        </li>
-      </ul>
+      <div v-else class="conversations-container">
+        <div
+          v-for="conv in conversations"
+          :key="conv.id"
+          class="conversation-block"
+          @click="viewConversation(conv.id, conv.name)"
+        >
+          <h4>{{ conv.name }}</h4>
+          <p v-if="conv.lastMessage">
+            Last message: {{ truncateText(conv.lastMessage.content) }} at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
+
 
 <style>
 .username-display {
@@ -105,5 +114,38 @@ export default {
   color: #555;
   margin-top: -10px;
   margin-bottom: 20px;
+}
+
+/* Styles for conversation blocks */
+.conversations-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.conversation-block {
+  background-color: #f0f0f0; /* Light grey background */
+  padding: 15px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.conversation-block h4 {
+  margin-top: 0;
+}
+
+.conversation-block p {
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@media (max-width: 600px) {
+  .conversation-block p {
+    -webkit-line-clamp: 3;
+  }
 }
 </style>

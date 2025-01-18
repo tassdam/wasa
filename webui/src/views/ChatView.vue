@@ -6,13 +6,13 @@
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
       <div v-for="message in messages" :key="message.id" class="message" :class="message.senderId === userToken ? 'self' : 'other'">
-        <div class="message-content" @mouseover="hoverMessage(message.id)" @mouseout="unhoverMessage(message.id)">
+        <div class="message-content">
           <p>
             <strong>{{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}</strong>:
             {{ message.content }}
           </p>
           <small>{{ formatTimestamp(message.timestamp) }}</small>
-          <button class="options-button" @click="toggleOptions(message.id)" v-if="hoveredMessages[message.id]">OptionsMenu</button>
+          <button class="options-button" @click="toggleOptions(message.id)">ˇ</button>
           <div class="options-menu" v-if="messageOptions[message.id]">
             <button @click="forwardMessage(message)">Forward</button>
             <button @click="commentOnMessage(message)">Comment</button>
@@ -54,7 +54,6 @@ export default {
       convName: localStorage.getItem("conversationName") || "Unknown User", 
       conversationId: this.$route.params.uuid, 
       messageOptions: {},
-      hoveredMessages: {}
     };
   },
   methods: {
@@ -96,7 +95,7 @@ export default {
             },
           }
         );
-        this.messages = response.data.messages;
+        this.messages = response.data.messages || [];
         this.$nextTick(() => {
           this.scrollToBottom();
         });
@@ -128,14 +127,6 @@ export default {
         this.messageOptions[messageId] = !this.messageOptions[messageId];
       }
     },
-    
-    hoverMessage(messageId) {
-      this.hoveredMessages[messageId] = true;
-    },
-    
-    unhoverMessage(messageId) {
-      this.hoveredMessages[messageId] = false;
-    },
 
     closeOptions(event) {
       if (!this.$el.contains(event.target)) {
@@ -159,30 +150,38 @@ export default {
 </script>
 
 <style scoped>
-
 .message-content {
   position: relative;
+  box-sizing: border-box;
 }
 
 .options-button {
   display: none;
+  background-color: #00000000;
   position: absolute;
-  top: 5px;
-  right: 5px;
+  top: 1px;
+  right: 1px;
+  border: 1px solid rgba(0, 0, 0, 0.07); 
+  border-radius: 5px; 
+  box-sizing: border-box;
 }
 
-.message:hover .options-button {
+.message-content:hover .options-button {
   display: block;
 }
 
 .options-menu {
+  display: none;
   position: absolute;
   top: 30px;
   right: 0;
-  background-color: white;
-  border: 1px solid #ccc;
+  background-color: #5ee3dd;
   border-radius: 5px;
   padding: 5px;
+}
+
+.message-content .options-menu {
+  display: block;
 }
 
 .chat-messages {
@@ -200,6 +199,7 @@ export default {
   margin-bottom: 10px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .message.self {
@@ -218,6 +218,9 @@ export default {
 .message p {
   margin: 0;
   color: #333;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
 }
 
 .message small {
@@ -245,14 +248,6 @@ export default {
   font-size: 20px;
   font-weight: bold;
   text-align: left;
-}
-
-.chat-messages {
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 20px;
-  border-top: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
 }
 
 .chat-input {

@@ -20,6 +20,7 @@ export default {
       try {
         const response = await this.$axios.post("/session", {
           name: this.name, 
+          photo: '/nopfp.jpg',
         });
         if (response.data.identifier) {
           this.profile.id = response.data.identifier;

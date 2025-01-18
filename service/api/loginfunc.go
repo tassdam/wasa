@@ -32,7 +32,6 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		return
 	}
 
-	// Try to get the user by name
 	user, err := rt.db.GetUserByName(req.Name)
 	if err == database.ErrUserDoesNotExist {
 		// User does not exist, create a new one
@@ -65,7 +64,6 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		Identifier: user.Id,
 	}
 
-	// According to the OpenAPI spec, successful login action is '201'
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
