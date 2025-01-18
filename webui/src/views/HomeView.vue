@@ -13,9 +13,7 @@ export default {
     async loadConversations() {
       this.errormsg = null;
       this.loading = true;
-
       try {
-        // Get the token from localStorage
         const token = localStorage.getItem("token");
         if (!token) {
           this.$router.push({ path: "/" });
@@ -35,20 +33,20 @@ export default {
       }
     },
     viewConversation(conversationId, conversationName) {   
-      localStorage.setItem("conversationName", conversationName)
+      localStorage.setItem("conversationName", conversationName);
       this.$router.push({
         path: `/conversations/${conversationId}`
       });
     },
-    truncateText(text, length = 100, clamp = '...') {
-      if (text.length <= length) {
+    truncateText(text, length = 50, clamp = '...') {
+      if (!text || text.length <= length) {
         return text;
       }
-      let truncated = text.slice(0, length).split(' ');
-      if (truncated.length > 0 && text.length > length) {
-        truncated.pop();
+      const lastSpaceIndex = text.substring(0, length).lastIndexOf(' ');
+      if (lastSpaceIndex === -1) {
+        return text.substring(0, length) + clamp;
       }
-      return truncated.join(' ') + clamp;
+      return text.substring(0, lastSpaceIndex) + clamp;
     },
     refresh() {
       this.loadConversations(); // Reload conversations
@@ -60,7 +58,6 @@ export default {
       console.log("New item triggered");
     }
   },
-  
   mounted() {
     this.username = localStorage.getItem("name") || "Guest";
     this.loadConversations();
@@ -70,7 +67,6 @@ export default {
 
 <template>
   <div>
-    <!-- Existing header and buttons -->
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
       <h1 class="h2">My Conversations</h1>
       <p class="username-display">Welcome, {{ username }}!</p>
@@ -116,7 +112,6 @@ export default {
   margin-bottom: 20px;
 }
 
-/* Styles for conversation blocks */
 .conversations-container {
   display: flex;
   flex-direction: column;
@@ -140,12 +135,14 @@ export default {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
 @media (max-width: 600px) {
   .conversation-block p {
     -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 }
 </style>
