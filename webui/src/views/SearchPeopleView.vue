@@ -1,8 +1,6 @@
 <template>
   <div class="search-container">
     <h1 class="page-title">Search People</h1>
-
-    <!-- Search Form -->
     <form @submit.prevent="searchUsers" class="search-form">
       <input
         id="username"
@@ -13,18 +11,12 @@
       />
       <button class="search-button" type="submit">Search</button>
     </form>
-
-    <!-- Error Message -->
     <div v-if="error" class="error-box">
       {{ error }}
     </div>
-
-    <!-- Loading Spinner -->
     <div v-if="loading">
       <LoadingSpinner />
     </div>
-
-    <!-- Search Results Section -->
     <div v-if="!loading && showResults" class="results-section">
       <h2 class="results-title">Results:</h2>
       <template v-if="users.length > 0">
@@ -57,6 +49,11 @@ export default {
     LoadingSpinner,
   },
   data() {
+    const token = localStorage.getItem("token");
+        if (!token) {
+          this.$router.push({ path: "/" });
+          return;
+        }
     return {
       query: "",
       lastQuery: "",
@@ -73,12 +70,10 @@ export default {
         this.showResults = false;
         return;
       }
-
       this.loading = true;
       this.error = "";
       this.users = [];
       this.showResults = false;
-
       try {
         const response = await axios.get(`/users/search`, {
           params: { username: this.query },
@@ -118,7 +113,6 @@ export default {
 </script>
 
 <style scoped>
-/* Container Styling */
 .search-container {
   text-align: center;
   padding: 20px;
@@ -134,7 +128,6 @@ export default {
   color: #333;
 }
 
-/* Search Form */
 .search-form {
   display: flex;
   justify-content: center;
@@ -164,7 +157,6 @@ export default {
   background-color: #0056b3;
 }
 
-/* Error Message */
 .error-box {
   background-color: #f8d7da;
   color: #842029;
@@ -175,7 +167,6 @@ export default {
   text-align: center;
 }
 
-/* Results Section */
 .results-section {
   margin-top: 20px;
 }
@@ -213,7 +204,6 @@ export default {
   text-decoration: underline;
 }
 
-/* Text Button */
 .text-button {
   padding: 5px 10px;
   background-color: #28a745;
@@ -228,7 +218,6 @@ export default {
   background-color: #218838;
 }
 
-/* No Results Message */
 .no-results {
   font-size: 16px;
   color: #666;

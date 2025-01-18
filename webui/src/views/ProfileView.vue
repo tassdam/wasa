@@ -1,17 +1,12 @@
 <template>
   <div class="profile-container">
     <div class="profile-header">
-      <!-- Display Current Photo -->
       <div class="photo-container">
         <img v-if="userPhoto" :src="userPhoto" alt="User Photo" class="profile-photo" />
         <p v-else class="no-photo-placeholder">No Photo</p>
       </div>
-
-      <!-- Display Current Username -->
       <div class="username-container">
         <h1 class="username">{{ userName }}</h1>
-
-        <!-- Update Username -->
         <div class="update-username-section">
           <input
             v-model="newUserName"
@@ -26,16 +21,12 @@
             Update Username
           </button>
         </div>
-
-        <!-- Update Photo -->
         <div class="update-photo-section">
           <input type="file" @change="handlePhotoUpload" accept="image/*" />
           <button @click="updatePhoto" :disabled="!newPhoto">Update Photo</button>
         </div>
       </div>
     </div>
-
-    <!-- Error Message -->
     <ErrorMsg v-if="errormsg" :msg="errormsg" />
   </div>
 </template>
@@ -51,17 +42,21 @@ export default {
   },
   data() {
     return {
-      userName: "", // Current username
-      userPhoto: null, // Current photo (base64 or blob URL)
-      newUserName: "", // Updated username input
-      newPhoto: null, // New photo file
-      errormsg: null, // Error message
+      userName: "", 
+      userPhoto: null, 
+      newUserName: "", 
+      newPhoto: null, 
+      errormsg: null, 
     };
   },
   methods: {
     async fetchUserProfile() {
       try {
         const token = localStorage.getItem("token");
+        if (!token) {
+          this.$router.push({ path: "/" });
+          return;
+        }
         const response = await axios.get("/users", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -83,21 +78,18 @@ export default {
     },
     async updatePhoto() {
       if (!this.newPhoto) return;
-
       try {
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append("photo", this.newPhoto);
-
         await axios.put("/users/me/photo", formData, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
         alert("Photo updated successfully!");
         this.newPhoto = null;
-        this.fetchUserProfile(); // Refresh photo display
+        this.fetchUserProfile(); 
       } catch (error) {
         console.error("Failed to update photo:", error);
         this.errormsg = "Failed to update photo. Please try again.";
@@ -105,7 +97,6 @@ export default {
     },
     async updateUsername() {
       if (!this.newUserName || this.newUserName === this.userName) return;
-
       try {
         const token = localStorage.getItem("token");
         const response = await axios.put(
@@ -117,7 +108,6 @@ export default {
             },
           }
         );
-
         alert("Username updated successfully!");
         localStorage.setItem("name", this.newUserName);
         this.userName = response.data.name;

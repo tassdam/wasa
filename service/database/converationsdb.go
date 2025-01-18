@@ -224,22 +224,13 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		c.type,
 		c.created_at,
 		c.conversationPhoto,
-		m.id AS last_message_id,
-		m.content AS last_message_content,
-		m.timestamp AS last_message_timestamp,
-		u.name AS last_message_sender
+		(SELECT id FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_id,
+		(SELECT content FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_content,
+		(SELECT timestamp FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_timestamp
 	FROM conversations c
 	JOIN conversation_members cm ON c.id = cm.conversationId
-	LEFT JOIN messages m ON m.id = (
-		SELECT id
-		FROM messages
-		WHERE conversationId = c.id
-		ORDER BY timestamp DESC
-		LIMIT 1
-	)
-	LEFT JOIN users u ON u.id = m.senderId
 	WHERE cm.userId = ?
-	ORDER BY last_message_timestamp DESC;
+	ORDER BY last_message_timestamp DESC NULLS LAST;
 	`
 
 	rows, err := db.c.Query(query, userID, userID)
@@ -251,10 +242,9 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 	var conversations []Conversation
 	for rows.Next() {
 		var conv Conversation
-		var lastMessage Message
-		var lastMessageTimestamp sql.NullString // Handle nullable timestamp
-		var lastMessageContent sql.NullString   // Handle nullable content
-		var lastMessageSender sql.NullString    // Handle nullable sender name
+		var lastMessageID sql.NullString        // Handle nullable last_message_id
+		var lastMessageContent sql.NullString   // Handle nullable last_message_content
+		var lastMessageTimestamp sql.NullString // Handle nullable last_message_timestamp
 
 		err := rows.Scan(
 			&conv.Id,
@@ -262,22 +252,20 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 			&conv.Type,
 			&conv.CreatedAt,
 			&conv.ConversationPhoto,
-			&lastMessage.Id,
+			&lastMessageID,
 			&lastMessageContent,
 			&lastMessageTimestamp,
-			&lastMessageSender,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning conversation: %w", err)
 		}
 
-		// Map nullable values to LastMessage
-		if lastMessageTimestamp.Valid || lastMessageContent.Valid || lastMessageSender.Valid {
+		// Map nullable last message fields
+		if lastMessageID.Valid {
 			conv.LastMessage = &Message{
-				Id:        lastMessage.Id,
+				Id:        lastMessageID.String,
 				Content:   lastMessageContent.String,
 				Timestamp: lastMessageTimestamp.String,
-				SenderId:  lastMessageSender.String,
 			}
 		}
 

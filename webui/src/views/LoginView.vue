@@ -1,9 +1,10 @@
 <script>
 export default {
   data() {
+    localStorage.clear();
     return {
       errormsg: null,
-      name: "", // Using 'name' instead of 'username'
+      name: "", 
       profile: {
         id: "",
         name: "",
@@ -19,24 +20,16 @@ export default {
 
       try {
         const response = await this.$axios.post("/session", {
-          name: this.name, // Sending 'name' to the server
+          name: this.name, 
         });
-
-        console.log("Login Response:", response.data); // Debugging response
-
-        // Adjusted to map the actual server response
         if (response.data.identifier) {
           this.profile.id = response.data.identifier;
-          this.profile.name = this.name; // Using 'name'
+          this.profile.name = this.name; 
         } else {
           throw new Error("Unexpected server response. Missing 'identifier'.");
         }
-
-        // Save authentication info
         localStorage.setItem("token", this.profile.id);
         localStorage.setItem("name", this.profile.name);
-
-        // Redirect to home after login
         this.$router.push({ path: "/home" });
       } catch (e) {
         if (e.response && e.response.status === 400) {
