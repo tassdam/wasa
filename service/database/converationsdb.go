@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"time"
 )
@@ -174,22 +175,37 @@ func (db *appdbimpl) GetConversationDetails(conversationID string) (Conversation
 }
 
 func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Message, error) {
-	rows, err := db.c.Query(`
-		SELECT id, conversationId, senderId, content, timestamp, forwardedMessageId, attachment
-		FROM messages
-		WHERE conversationId = ?
-		ORDER BY timestamp ASC
-	`, conversationID)
+	query := `
+        SELECT 
+            m.id, 
+            m.conversationId, 
+            m.senderId, 
+            m.content, 
+            m.timestamp, 
+            m.forwardedMessageId, 
+            m.attachment,
+            u.name AS senderName,
+            u.photo AS senderPhoto
+        FROM 
+            messages m
+        JOIN 
+            users u ON m.senderId = u.id
+        WHERE 
+            m.conversationId = ?
+        ORDER BY 
+            m.timestamp ASC
+    `
+	rows, err := db.c.Query(query, conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching messages: %w", err)
 	}
 	defer rows.Close()
-
 	var messages []Message
 	for rows.Next() {
 		var message Message
 		var forwardedMessage sql.NullString
-		if err := rows.Scan(
+		var senderPhoto []byte
+		err := rows.Scan(
 			&message.Id,
 			&message.ConversationId,
 			&message.SenderId,
@@ -197,8 +213,16 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 			&message.Timestamp,
 			&forwardedMessage,
 			&message.Attachment,
-		); err != nil {
+			&message.SenderName,
+			&senderPhoto,
+		)
+		if err != nil {
 			return nil, err
+		}
+		if senderPhoto != nil {
+			message.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
+		} else {
+			message.SenderPhoto = ""
 		}
 		if forwardedMessage.Valid {
 			message.ForwardedMessage = &forwardedMessage.String

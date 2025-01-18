@@ -72,21 +72,18 @@ func (rt *_router) getConversation(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// Extract conversationId from the route parameters
 	conversationID := ps.ByName("conversationId")
 	if conversationID == "" {
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
 		return
 	}
 
-	// Get the user ID from the Authorization header
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Check if the user is a member of the conversation
 	isMember, err := rt.db.IsUserInConversation(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to check conversation membership")
@@ -98,7 +95,6 @@ func (rt *_router) getConversation(
 		return
 	}
 
-	// Retrieve conversation details
 	conversation, err := rt.db.GetConversationDetails(conversationID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation details")
@@ -110,7 +106,6 @@ func (rt *_router) getConversation(
 		return
 	}
 
-	// Respond with the conversation details
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(conversation); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode conversation details")

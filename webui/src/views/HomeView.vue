@@ -1,6 +1,7 @@
 <script>
 export default {
   data() {
+    localStorage.removeItem("recipientId")
     return {
       username: "", 
       errormsg: null,
@@ -33,7 +34,8 @@ export default {
         this.loading = false;
       }
     },
-    viewConversation(conversationId) {   
+    viewConversation(conversationId, conversationName) {   
+      localStorage.setItem("conversationName", conversationName)
       this.$router.push({
         path: `/conversations/${conversationId}`
       });
@@ -84,7 +86,7 @@ export default {
 
       <ul v-else>
         <li v-for="conv in conversations" :key="conv.id">
-          <strong @click="viewConversation(conv.id)" style="cursor: pointer; color: #007bff;">
+          <strong @click="viewConversation(conv.id, conv.name)" style="cursor: pointer; color: #007bff;">
             {{ conv.name }}
           </strong> 
           <div v-if="conv.lastMessage">

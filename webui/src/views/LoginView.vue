@@ -17,7 +17,6 @@ export default {
         this.errormsg = "Name cannot be empty.";
         return;
       }
-
       try {
         const response = await this.$axios.post("/session", {
           name: this.name, 

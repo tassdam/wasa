@@ -32,10 +32,12 @@ type Message struct {
 	Id               string  `json:"id"`
 	ConversationId   string  `json:"conversationId"`
 	SenderId         string  `json:"senderId"`
+	SenderName       string  `json:"senderName"`
 	Content          string  `json:"content"`
 	Timestamp        string  `json:"timestamp"`
 	ForwardedMessage *string `json:"forwardedMessageId,omitempty"`
-	Attachment       []byte  `json:"attachment,omitempty"` // Binary data for photos or GIFs
+	Attachment       []byte  `json:"attachment,omitempty;base64"`
+	SenderPhoto      string  `json:"senderPhoto,omitempty"`
 }
 
 type Comment struct {

@@ -1,21 +1,26 @@
 <template>
   <div class="chat-container">
-
     <div class="chat-header">
-      <h3>{{ userName }}</h3>
+      <h3>{{ convName }}</h3>
     </div>
-
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
-      <div v-for="message in messages" :key="message.id" class="message">
-        <p>
-          <strong>{{ message.senderName || "Unknown Sender" }}</strong>: 
-          {{ message.content }}
-        </p>
-        <small>{{ formatTimestamp(message.timestamp) }}</small>
+      <div v-for="message in messages" :key="message.id" class="message" :class="message.senderId === userToken ? 'self' : 'other'">
+        <div class="message-content" @mouseover="hoverMessage(message.id)" @mouseout="unhoverMessage(message.id)">
+          <p>
+            <strong>{{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}</strong>:
+            {{ message.content }}
+          </p>
+          <small>{{ formatTimestamp(message.timestamp) }}</small>
+          <button class="options-button" @click="toggleOptions(message.id)" v-if="hoveredMessages[message.id]">OptionsMenu</button>
+          <div class="options-menu" v-if="messageOptions[message.id]">
+            <button @click="forwardMessage(message)">Forward</button>
+            <button @click="commentOnMessage(message)">Comment</button>
+            <button v-if="message.senderId === userToken" @click="deleteMessage(message)">Delete</button>
+          </div>
+        </div>
       </div>
     </div>
-
     <div class="chat-input">
       <button class="attach-button">Attach Image or GIF</button>
       <input
@@ -45,8 +50,11 @@ export default {
     return {
       message: "",
       messages: [], 
-      userName: localStorage.getItem("recipientName") || "Unknown User", 
+      userToken: localStorage.getItem("token"),
+      convName: localStorage.getItem("conversationName") || "Unknown User", 
       conversationId: this.$route.params.uuid, 
+      messageOptions: {},
+      hoveredMessages: {}
     };
   },
   methods: {
@@ -88,10 +96,7 @@ export default {
             },
           }
         );
-        this.messages = response.data.messages.map((message) => ({
-          ...message,
-          senderName: this.getSenderName(message.senderId),
-        }));
+        this.messages = response.data.messages;
         this.$nextTick(() => {
           this.scrollToBottom();
         });
@@ -101,11 +106,7 @@ export default {
       }
     },
 
-    getSenderName(userId) {
-      if (userId === localStorage.getItem("token")) {
-        return "You";
-      }
-      return localStorage.getItem("recipientName") || "Unknown User";
+    async deleteMessage(message) {
     },
 
     formatTimestamp(timestamp) {
@@ -119,14 +120,119 @@ export default {
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
     },
+
+    toggleOptions(messageId) {
+      if (this.messageOptions[messageId] === undefined) {
+        this.messageOptions[messageId] = true;
+      } else {
+        this.messageOptions[messageId] = !this.messageOptions[messageId];
+      }
+    },
+    
+    hoverMessage(messageId) {
+      this.hoveredMessages[messageId] = true;
+    },
+    
+    unhoverMessage(messageId) {
+      this.hoveredMessages[messageId] = false;
+    },
+
+    closeOptions(event) {
+      if (!this.$el.contains(event.target)) {
+        this.messageOptions = {};
+      }
+    },
+
+    forwardMessage(message) {
+      // Implement forward message logic
+    },
+
+    commentOnMessage(message) {
+      // Implement comment on message logic
+    },
   },
   mounted() {
     this.fetchMessages();
+    document.addEventListener('click', this.closeOptions);
   },
 };
 </script>
 
 <style scoped>
+
+.message-content {
+  position: relative;
+}
+
+.options-button {
+  display: none;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.message:hover .options-button {
+  display: block;
+}
+
+.options-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+
+.message {
+  max-width: 70%;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.message.self {
+  margin-left: auto;
+  background-color: #d1e7dd;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.message.other {
+  background-color: #e0f2f1;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.message p {
+  margin: 0;
+  color: #333;
+}
+
+.message small {
+  margin-top: 5px;
+  color: #666;
+}
+
+.message.self small {
+  align-self: flex-end;
+}
+
+.message.other small {
+  align-self: flex-start;
+}
+
 .chat-container {
   display: flex;
   flex-direction: column;
@@ -147,10 +253,6 @@ export default {
   padding: 20px;
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
-}
-
-.message {
-  margin-bottom: 10px;
 }
 
 .chat-input {
