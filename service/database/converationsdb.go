@@ -331,3 +331,31 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 
 	return conversations, nil
 }
+
+func (db *appdbimpl) DeleteMessage(conversationID, messageID, userID string) error {
+	var senderID string
+	err := db.c.QueryRow(`
+		SELECT senderId
+		FROM messages
+		WHERE conversationId = ? AND id = ?
+	`, conversationID, messageID).Scan(&senderID)
+	if err == sql.ErrNoRows {
+		return ErrMessageDoesNotExist
+	}
+	if err != nil {
+		return fmt.Errorf("error fetching message: %w", err)
+	}
+	if senderID != userID {
+		return ErrUnauthorizedToDeleteMessage
+	}
+
+	_, err = db.c.Exec(`
+		DELETE FROM messages
+		WHERE conversationId = ? AND id = ?
+	`, conversationID, messageID)
+	if err != nil {
+		return fmt.Errorf("error deleting message: %w", err)
+	}
+
+	return nil
+}

@@ -93,8 +93,7 @@ export default {
       this.$router.push(`/profile/${username}`);
     },
     navigateToConversation(recipientId, recipientName) {
-      localStorage.setItem("recipientId", recipientId);
-      localStorage.setItem("recipientName", recipientName);
+      localStorage.setItem("conversationName", recipientName);
       const senderId = localStorage.getItem("token"); // Get the sender's ID from local storage
       axios
         .post(`/conversations`, { senderId, recipientId })

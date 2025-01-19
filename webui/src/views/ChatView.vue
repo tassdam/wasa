@@ -106,6 +106,29 @@ export default {
     },
 
     async deleteMessage(message) {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                this.$router.push({ path: "/" });
+                return;
+            }
+            await axios.delete(
+                `/conversations/${this.conversationId}/messages/${message.id}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+            // Remove the message from the messages array
+            this.messages = this.messages.filter(m => m.id !== message.id);
+            this.$nextTick(() => {
+                this.scrollToBottom();
+            });
+        } catch (error) {
+            console.error("Failed to delete message:", error);
+            alert("Failed to delete message. Please try again later.");
+        }
     },
 
     formatTimestamp(timestamp) {

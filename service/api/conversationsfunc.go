@@ -225,3 +225,44 @@ func (rt *_router) getMyConversations(
 		ctx.Logger.WithError(err).Error("Failed to encode conversations")
 	}
 }
+
+func (rt *_router) deleteMessage(
+	w http.ResponseWriter,
+	r *http.Request,
+	ps httprouter.Params,
+	ctx reqcontext.RequestContext,
+) {
+	conversationID := ps.ByName("conversationId")
+	messageID := ps.ByName("messageId")
+
+	userID, err := rt.getAuthenticatedUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if ok, err := rt.db.IsUserInConversation(conversationID, userID); !ok {
+		if err != nil {
+			ctx.Logger.WithError(err).Error("Failed to check conversation membership")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, "Forbidden: You are not a member of this conversation", http.StatusForbidden)
+		return
+	}
+
+	err = rt.db.DeleteMessage(conversationID, messageID, userID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to delete message")
+		if errors.Is(err, database.ErrMessageDoesNotExist) {
+			http.Error(w, "Message not found", http.StatusNotFound)
+		} else if errors.Is(err, database.ErrUnauthorizedToDeleteMessage) {
+			http.Error(w, "Forbidden: You are not the sender of this message", http.StatusForbidden)
+		} else {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

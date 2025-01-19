@@ -10,6 +10,7 @@ var ErrUserDoesNotExist = errors.New("User does not exist")
 var ErrConversationDoesNotExist = errors.New("Conversation does not exist")
 var ErrMessageDoesNotExist = errors.New("Message does not exist")
 var ErrCommentDoesNotExist = errors.New("Comment does not exist")
+var ErrUnauthorizedToDeleteMessage = errors.New("Not authorized to delete the message")
 
 type User struct {
 	Id    string `json:"id"`
@@ -74,6 +75,7 @@ type AppDatabase interface {
 	GetMyConversations(userID string) ([]Conversation, error)
 	GetConversationMembers(conversationID string) ([]string, error)
 	GetUsersPhoto(userID string) (User, error)
+	DeleteMessage(conversationID, messageID, userID string) error
 }
 
 // appdbimpl is the internal implementation of AppDatabase.
