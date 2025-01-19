@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/tassdam/wasa/service/api/reqcontext"
@@ -264,5 +265,63 @@ func (rt *_router) deleteMessage(
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+}
+
+func (rt *_router) forwardMessage(
+	w http.ResponseWriter,
+	r *http.Request,
+	ps httprouter.Params,
+	ctx reqcontext.RequestContext,
+) {
+	messageID := ps.ByName("messageId")
+	var req struct {
+		TargetConversationID string `json:"targetConversationId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	userID, err := rt.getAuthenticatedUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	originalMessage, err := rt.db.GetMessage(messageID, userID)
+	if err != nil {
+		if errors.Is(err, database.ErrMessageDoesNotExist) {
+			http.Error(w, "Message not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
+	newMessageID, err := generateNewID()
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to generate new message ID")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	newMessage := database.Message{
+		Id:               newMessageID,
+		ConversationId:   req.TargetConversationID,
+		SenderId:         originalMessage.SenderId,
+		Content:          originalMessage.Content,
+		Timestamp:        time.Now().Format(time.RFC3339),
+		ForwardedMessage: &originalMessage.Id,
+	}
+
+	if _, err := rt.db.SaveMessage(
+		newMessage.ConversationId,
+		newMessage.SenderId,
+		newMessage.Id,
+		newMessage.Content,
+		newMessage.ForwardedMessage,
+		nil,
+	); err != nil {
+		ctx.Logger.WithError(err).Error("Failed to save forwarded message")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }

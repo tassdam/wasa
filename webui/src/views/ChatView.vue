@@ -8,21 +8,22 @@
       <div v-for="message in messages" :key="message.id" class="message" :class="message.senderId === userToken ? 'self' : 'other'">
         <div class="message-content" @click.stop>
           <p>
-            <strong>{{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}</strong>:
+            <strong v-if="message.forwardedMessageId">
+              Forwarded from {{ message.senderName || 'Unknown Sender' }}:
+            </strong>
+            <strong v-else>
+              {{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}:
+            </strong>
             {{ message.content }}
           </p>
           <small>{{ formatTimestamp(message.timestamp) }}</small>
-          <!-- Reactions Display -->
           <div v-if="messageOptions[message.id]?.reactions && messageOptions[message.id].reactions.length">
             <span v-for="(reaction, index) in messageOptions[message.id].reactions" :key="index">
               {{ reaction.emoji }}
             </span>
           </div>
-          <!-- Forward Button -->
           <button class="forward-button" @click.stop="showForwardOptions(message.id)">→</button>
-          <!-- Delete Button for self messages -->
           <button v-if="message.senderId === userToken" class="delete-button" @click.stop="deleteMessage(message)">✖</button>
-          <!-- Comment Emojis -->
           <div v-if="messageOptions[message.id]?.showCommentEmojis" class="comment-emojis" @click.stop>
             <button class="emoji-button" @click="sendReaction('😄', message.id)">😄</button>
             <button class="emoji-button" @click="sendReaction('😅', message.id)">😅</button>
@@ -30,7 +31,6 @@
             <button class="emoji-button" @click="sendReaction('🤔', message.id)">🤔</button>
             <button class="emoji-button" @click="sendReaction('😢', message.id)">😢</button>
           </div>
-          <!-- Forward Options -->
           <div v-if="messageOptions[message.id]?.showForwardMenu" class="forward-options" @click.stop>
             <label for="forward-select">Forward to:</label>
             <select
@@ -245,17 +245,15 @@ export default {
       }
     },
     async forwardMessage(targetConversationId, messageId) {
-      if (!targetConversationId) {
-        alert("Please select a conversation to forward the message.");
-        return;
-      }
       const message = this.messages.find(m => m.id === messageId);
       if (!message) return;
       try {
         const token = localStorage.getItem("token");
         await axios.post(
-          `/conversations/${targetConversationId}/messages/forward`,
-          { sourceMessageId: message.id },
+          `/conversations/${this.conversationId}/messages/${messageId}/forward`,
+          { sourceMessageId: message.id,
+            targetConversationId: targetConversationId 
+          },
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -264,7 +262,7 @@ export default {
         this.closeForwardMenu(messageId);
       } catch (error) {
         console.error("Failed to forward message:", error);
-        alert("Failed to forward message. Please try again.");
+        alert(`Failed to forward message. Please try again.${messageId},${sourceMessageId}`);
       }
     },
     sendReaction(emoji, messageId) {

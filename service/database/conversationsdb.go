@@ -9,8 +9,6 @@ import (
 
 func (db *appdbimpl) GetDirectConversation(senderID, recipientID string) (string, error) {
 	var conversationID string
-
-	// Query for existing direct conversation
 	err := db.c.QueryRow(`
 		SELECT id
 		FROM conversations
@@ -358,4 +356,41 @@ func (db *appdbimpl) DeleteMessage(conversationID, messageID, userID string) err
 	}
 
 	return nil
+}
+
+func (db *appdbimpl) GetMessage(messageID, userID string) (Message, error) {
+	var message Message
+	err := db.c.QueryRow(`
+        SELECT 
+            m.id, 
+            m.conversationId, 
+            m.senderId, 
+            m.content, 
+            m.timestamp, 
+            m.forwardedMessageId, 
+            u.name AS senderName
+        FROM 
+            messages m
+        JOIN 
+            users u ON m.senderId = u.id
+        JOIN 
+            conversation_members cm ON m.conversationId = cm.conversationId
+        WHERE 
+            m.id = ? AND cm.userId = ?
+    `, messageID, userID).Scan(
+		&message.Id,
+		&message.ConversationId,
+		&message.SenderId,
+		&message.Content,
+		&message.Timestamp,
+		&message.ForwardedMessage,
+		&message.SenderName,
+	)
+	if err == sql.ErrNoRows {
+		return message, ErrMessageDoesNotExist
+	}
+	if err != nil {
+		return message, fmt.Errorf("error fetching message: %w", err)
+	}
+	return message, nil
 }
