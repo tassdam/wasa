@@ -2,9 +2,9 @@ package api
 
 import "time"
 
-// LoginRequest corresponds to the schema for user login requests.
 type LoginRequest struct {
-	Name string `json:"name"` // The name of the user to log in
+	Name  string `json:"name"`
+	Photo string `json:"photo"`
 }
 
 // LoginResponse corresponds to the schema for user login responses.
@@ -19,8 +19,9 @@ type UpdateUserRequest struct {
 
 // User corresponds to the User schema.
 type User struct {
-	ID   string `json:"id"`   // Unique identifier of the user
-	Name string `json:"name"` // Name of the user
+	ID    string `json:"id"`   // Unique identifier of the user
+	Name  string `json:"name"` // Name of the user
+	Photo []byte `json:"photo"`
 }
 
 // Message corresponds to the Message schema.

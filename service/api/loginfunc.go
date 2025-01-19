@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 
@@ -9,32 +10,32 @@ import (
 	"github.com/tassdam/wasa/service/database"
 )
 
-// LoginRequest matches the schema defined in your OpenAPI specification
-
 func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	// Ensure the method is POST. If checked by middleware already, this can be skipped.
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse the request body into a LoginRequest struct
 	var req LoginRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	// ПЕРЕДЕЛАТЬ
 	if len(req.Name) < 3 || len(req.Name) > 160 {
 		http.Error(w, "Invalid username length", http.StatusBadRequest)
 		return
 	}
 
+	photoStr := string(req.Photo)
+	photoBytes, err := base64.StdEncoding.DecodeString(photoStr)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Invalid base64 photo data")
+		http.Error(w, "Invalid photo data", http.StatusBadRequest)
+		return
+	}
+
 	user, err := rt.db.GetUserByName(req.Name)
 	if err == database.ErrUserDoesNotExist {
-		// User does not exist, create a new one
 		newID, genErr := generateNewID()
 		if genErr != nil {
 			ctx.Logger.WithError(genErr).Error("Failed to generate user ID")
@@ -42,8 +43,9 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 			return
 		}
 		newUser := database.User{
-			Id:   newID,
-			Name: req.Name,
+			Id:    newID,
+			Name:  req.Name,
+			Photo: photoBytes,
 		}
 		createdUser, createErr := rt.db.CreateUser(newUser)
 		if createErr != nil {
@@ -53,19 +55,15 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		}
 		user = createdUser
 	} else if err != nil {
-		// Some other error from the database
 		ctx.Logger.WithError(err).Error("error retrieving user")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	// Prepare the response
 	resp := LoginResponse{
 		Identifier: user.Id,
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
-
 }

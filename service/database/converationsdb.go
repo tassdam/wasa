@@ -233,6 +233,7 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 }
 
 func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
+	// SQL query to fetch conversations and the other member's photo for direct conversations
 	query := `
 	SELECT 
 		c.id,
@@ -247,7 +248,15 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		END AS conversation_name,
 		c.type,
 		c.created_at,
-		c.conversationPhoto,
+		CASE 
+			WHEN c.type = 'direct' THEN 
+				(SELECT u.photo 
+				 FROM users u 
+				 JOIN conversation_members cm2 
+				 ON u.id = cm2.userId 
+				 WHERE cm2.conversationId = c.id AND u.id != ?)
+			ELSE c.conversationPhoto
+		END AS conversation_photo,
 		(SELECT id FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_id,
 		(SELECT content FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_content,
 		(SELECT timestamp FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_timestamp
@@ -256,26 +265,31 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 	WHERE cm.userId = ?
 	ORDER BY last_message_timestamp DESC NULLS LAST;
 	`
-
-	rows, err := db.c.Query(query, userID, userID)
+	// Execute the query
+	rows, err := db.c.Query(query, userID, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching conversations: %w", err)
 	}
 	defer rows.Close()
 
+	// Slice to hold the conversations
 	var conversations []Conversation
+
+	// Iterate over the rows
 	for rows.Next() {
 		var conv Conversation
 		var lastMessageID sql.NullString        // Handle nullable last_message_id
 		var lastMessageContent sql.NullString   // Handle nullable last_message_content
 		var lastMessageTimestamp sql.NullString // Handle nullable last_message_timestamp
 
+		// Scan the row into the Conversation struct
+		var convPhoto sql.NullString
 		err := rows.Scan(
 			&conv.Id,
 			&conv.Name,
 			&conv.Type,
 			&conv.CreatedAt,
-			&conv.ConversationPhoto,
+			&convPhoto,
 			&lastMessageID,
 			&lastMessageContent,
 			&lastMessageTimestamp,
@@ -284,7 +298,13 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 			return nil, fmt.Errorf("error scanning conversation: %w", err)
 		}
 
-		// Map nullable last message fields
+		if convPhoto.Valid {
+			conv.ConversationPhoto.String = base64.StdEncoding.EncodeToString([]byte(convPhoto.String))
+			conv.ConversationPhoto.Valid = true
+		} else {
+			conv.ConversationPhoto = sql.NullString{String: "", Valid: false}
+		}
+
 		if lastMessageID.Valid {
 			conv.LastMessage = &Message{
 				Id:        lastMessageID.String,
@@ -296,11 +316,17 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		// Fetch conversation members
 		members, err := db.GetConversationMembers(conv.Id)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error fetching conversation members: %w", err)
 		}
 		conv.Members = members
 
+		// Append the conversation to the slice
 		conversations = append(conversations, conv)
+	}
+
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
 
 	return conversations, nil

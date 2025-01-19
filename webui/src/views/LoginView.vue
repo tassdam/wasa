@@ -12,15 +12,45 @@ export default {
     };
   },
   methods: {
+    async loadDefaultPhoto() {
+      try {
+          const response = await fetch('/nopfp.jpg');
+          const blob = await response.blob();
+          const reader = new FileReader();
+          return new Promise((resolve, reject) => {
+              reader.onload = () => {
+                  const base64String = reader.result.toString().split(',')[1];
+                  resolve(base64String);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+          });
+      } catch (error) {
+          console.error('Error loading default photo:', error);
+          return null;
+      }
+  },
+    blobToBase64(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    },
     async doLogin() {
       if (this.name.trim() === "") {
         this.errormsg = "Name cannot be empty.";
         return;
       }
       try {
+        const photoData = await this.loadDefaultPhoto();
         const response = await this.$axios.post("/session", {
-          name: this.name, 
-          photo: '/nopfp.jpg',
+          name: this.name,
+          photo: photoData,
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
         if (response.data.identifier) {
           this.profile.id = response.data.identifier;

@@ -14,41 +14,30 @@ import (
 
 var ErrUnauthorized = errors.New("unauthorized request")
 
-// setMyUserName handles PUT /users/me to update the authenticated user’s username.
-// Example usage in the router: rt.router.PUT("/users/me", rt.wrap(rt.setMyUserName))
 func (rt *_router) setMyUserName(
 	w http.ResponseWriter,
 	r *http.Request,
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// 1. Enforce correct HTTP method (optional if your router already does this).
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	// 2. Get the authenticated user ID from the request.
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
-	// 3. Parse the request body into UpdateUserRequest.
 	var req UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	// 4. Validate the new username if needed.
 	if len(req.Name) < 3 || len(req.Name) > 16 {
 		http.Error(w, "Invalid username length", http.StatusBadRequest)
 		return
 	}
-
-	// 5. Update username in the database.
 	updatedUser, dbErr := rt.db.UpdateUserName(userID, req.Name)
 	if dbErr == database.ErrUserDoesNotExist {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -58,76 +47,53 @@ func (rt *_router) setMyUserName(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	// 6. Return updated user info as JSON (adjust structure to match your OpenAPI).
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(updatedUser); err != nil {
 		ctx.Logger.WithError(err).Error("failed to encode updated user response")
-		// Decide if you want to silently fail or send another error response
 	}
 }
-
-// setMyPhoto handles PUT /users/me/photo to update the authenticated user’s photo.
-// Example usage: rt.router.PUT("/users/me/photo", rt.wrap(rt.setMyPhoto))
 func (rt *_router) setMyPhoto(
 	w http.ResponseWriter,
 	r *http.Request,
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// 1. Enforce correct HTTP method.
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	// 2. Get the authenticated user ID from the request.
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
-	// 3. Parse the multipart form (max size: 10MB).
-	err = r.ParseMultipartForm(10 * 1024 * 1024) // 10 MB limit
+	err = r.ParseMultipartForm(10 * 1024 * 1024)
 	if err != nil {
 		http.Error(w, "Failed to parse form. Ensure the file is below 10 MB.", http.StatusBadRequest)
 		return
 	}
-
-	// 4. Retrieve the file from the form.
-	file, fileHeader, err := r.FormFile("photo") // "photo" is the form field name
+	file, fileHeader, err := r.FormFile("photo")
 	if err != nil {
 		http.Error(w, "Failed to retrieve photo file", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
-
-	// 5. Read the file into a byte slice.
 	photoData, err := io.ReadAll(file)
 	if err != nil {
 		http.Error(w, "Failed to read photo file", http.StatusInternalServerError)
 		return
 	}
-
-	// 6. Validate file size (ensure it's within the limit).
 	if len(photoData) > 10*1024*1024 { // 10 MB
 		http.Error(w, "Photo too large. Maximum allowed size is 10 MB.", http.StatusRequestEntityTooLarge)
 		return
 	}
-
-	// 7. Validate file type.
 	fileType := http.DetectContentType(photoData)
 	if fileType != "image/jpeg" && fileType != "image/png" {
 		http.Error(w, "Invalid file type. Only JPEG and PNG are supported.", http.StatusUnsupportedMediaType)
 		return
 	}
-
-	// Log file details for debugging (optional)
 	ctx.Logger.Infof("Received file: %s, size: %d bytes, type: %s", fileHeader.Filename, len(photoData), fileType)
-
-	// 8. Update the photo in the database.
 	err = rt.db.UpdateUserPhoto(userID, photoData)
 	if err == database.ErrUserDoesNotExist {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -137,8 +103,6 @@ func (rt *_router) setMyPhoto(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	// 9. Respond with a success message.
 	response := map[string]string{
 		"message": "Photo updated successfully",
 	}

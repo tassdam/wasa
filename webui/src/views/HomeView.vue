@@ -93,10 +93,20 @@ export default {
           class="conversation-block"
           @click="viewConversation(conv.id, conv.name)"
         >
-          <h4>{{ conv.name }}</h4>
-          <p v-if="conv.lastMessage">
-            Last message: {{ truncateText(conv.lastMessage.content) }} at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
-          </p>
+          <div class="conversation-photo">
+            <img
+              v-if="conv.type === 'direct' && conv.conversationPhoto.String"
+              :src="'data:image/png;base64,' + conv.conversationPhoto.String"
+              alt="Profile Picture"
+              class="profile-picture"
+            />
+          </div>
+          <div class="conversation-details">
+            <h4>{{ conv.name }}</h4>
+            <p v-if="conv.lastMessage">
+              Last message: {{ truncateText(conv.lastMessage.content) }} at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -129,14 +139,23 @@ export default {
   margin-top: 0;
 }
 
-.conversation-block p {
-  margin-bottom: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
+.conversation-block {
+  display: flex; /* Enable flexbox */
+  align-items: center; /* Center items vertically */
+  gap: 15px; /* Space between photo and text */
+}
+
+.conversation-photo {
+  flex-shrink: 0; /* Prevent photo from shrinking */
+  width: 75px; /* Match profile picture width */
+  height: 75px; /* Match profile picture height */
+}
+
+.profile-picture {
+  width: 75px;
+  height: 75px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 @media (max-width: 600px) {
