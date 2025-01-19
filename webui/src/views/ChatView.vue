@@ -6,17 +6,57 @@
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
       <div v-for="message in messages" :key="message.id" class="message" :class="message.senderId === userToken ? 'self' : 'other'">
-        <div class="message-content">
+        <div class="message-content" @click.stop>
           <p>
             <strong>{{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}</strong>:
             {{ message.content }}
           </p>
           <small>{{ formatTimestamp(message.timestamp) }}</small>
-          <button class="options-button" @click="toggleOptions(message.id)">ˇ</button>
-          <div class="options-menu" v-if="messageOptions[message.id]">
-            <button @click="forwardMessage(message)">Forward</button>
-            <button @click="commentOnMessage(message)">Comment</button>
-            <button v-if="message.senderId === userToken" @click="deleteMessage(message)">Delete</button>
+          <!-- Reactions Display -->
+          <div v-if="messageOptions[message.id]?.reactions && messageOptions[message.id].reactions.length">
+            <span v-for="(reaction, index) in messageOptions[message.id].reactions" :key="index">
+              {{ reaction.emoji }}
+            </span>
+          </div>
+          <!-- Forward Button -->
+          <button class="forward-button" @click.stop="showForwardOptions(message.id)">→</button>
+          <!-- Delete Button for self messages -->
+          <button v-if="message.senderId === userToken" class="delete-button" @click.stop="deleteMessage(message)">✖</button>
+          <!-- Comment Emojis -->
+          <div v-if="messageOptions[message.id]?.showCommentEmojis" class="comment-emojis" @click.stop>
+            <button class="emoji-button" @click="sendReaction('😄', message.id)">😄</button>
+            <button class="emoji-button" @click="sendReaction('😅', message.id)">😅</button>
+            <button class="emoji-button" @click="sendReaction('😍', message.id)">😍</button>
+            <button class="emoji-button" @click="sendReaction('🤔', message.id)">🤔</button>
+            <button class="emoji-button" @click="sendReaction('😢', message.id)">😢</button>
+          </div>
+          <!-- Forward Options -->
+          <div v-if="messageOptions[message.id]?.showForwardMenu" class="forward-options" @click.stop>
+            <label for="forward-select">Forward to:</label>
+            <select
+              id="forward-select"
+              class="forward-select"
+              v-model="messageOptions[message.id].selectedConversationId"
+            >
+              <option
+                v-for="conv in messageOptions[message.id].forwardConversations"
+                :key="conv.id"
+                :value="conv.id"
+              >
+                {{ conv.name }}
+              </option>
+            </select>
+            <button
+              class="button-style"
+              :disabled="!messageOptions[message.id].selectedConversationId"
+              @click.stop="forwardMessage(messageOptions[message.id].selectedConversationId, message.id)"
+            >
+              Send
+            </button>
+            <button class="button-style" @click.stop="closeForwardMenu(message.id)">Cancel</button>
+            <div v-if="messageOptions[message.id].forwardConversations.length === 0">
+              No conversation found.
+            </div>
           </div>
         </div>
       </div>
@@ -49,11 +89,13 @@ export default {
   data() {
     return {
       message: "",
-      messages: [], 
+      messages: [],
       userToken: localStorage.getItem("token"),
-      convName: localStorage.getItem("conversationName") || "Unknown User", 
-      conversationId: this.$route.params.uuid, 
+      convName: localStorage.getItem("conversationName") || "Unknown User",
+      conversationId: this.$route.params.uuid,
       messageOptions: {},
+      showCommentEmojis: false,
+      emojis: ['😄', '😅', '😍', '🤔', '😢'],
     };
   },
   methods: {
@@ -69,17 +111,16 @@ export default {
           { content: this.message },
           {
             headers: {
-              Authorization: `Bearer ${token}`, 
+              Authorization: `Bearer ${token}`,
             },
           }
         );
-        this.message = ""; 
-        this.fetchMessages(); 
+        this.message = "";
+        this.fetchMessages();
       } catch (error) {
         console.error("Failed to send message:", error);
       }
     },
-
     async fetchMessages() {
       try {
         const token = localStorage.getItem("token");
@@ -91,7 +132,7 @@ export default {
           `/conversations/${this.conversationId}`,
           {
             headers: {
-              Authorization: `Bearer ${token}`, 
+              Authorization: `Bearer ${token}`,
             },
           }
         );
@@ -104,70 +145,157 @@ export default {
         alert("Failed to load messages. Please try again later.");
       }
     },
-
     async deleteMessage(message) {
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                this.$router.push({ path: "/" });
-                return;
-            }
-            await axios.delete(
-                `/conversations/${this.conversationId}/messages/${message.id}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-            // Remove the message from the messages array
-            this.messages = this.messages.filter(m => m.id !== message.id);
-            this.$nextTick(() => {
-                this.scrollToBottom();
-            });
-        } catch (error) {
-            console.error("Failed to delete message:", error);
-            alert("Failed to delete message. Please try again later.");
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          this.$router.push({ path: "/" });
+          return;
         }
+        await axios.delete(
+          `/conversations/${this.conversationId}/messages/${message.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        this.messages = this.messages.filter(m => m.id !== message.id);
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+      } catch (error) {
+        console.error("Failed to delete message:", error);
+        alert("Failed to delete message. Please try again later.");
+      }
     },
-
     formatTimestamp(timestamp) {
       const date = new Date(timestamp);
       return date.toLocaleString();
     },
-
     scrollToBottom() {
       const chatMessages = this.$refs.chatMessages;
       if (chatMessages) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
     },
-
-    toggleOptions(messageId) {
-      if (this.messageOptions[messageId] === undefined) {
-        this.messageOptions[messageId] = true;
+    showForwardOptions(messageId) {
+      this.closeAllMenus();
+      if (!this.messageOptions[messageId]) {
+        this.messageOptions[messageId] = {
+          showForwardMenu: true,
+          showCommentEmojis: false,
+          forwardConversations: [],
+          selectedConversationId: null,
+          reactions: [],
+        };
+        this.fetchForwardConversations(messageId);
       } else {
-        this.messageOptions[messageId] = !this.messageOptions[messageId];
+        this.messageOptions[messageId].showForwardMenu = !this.messageOptions[messageId].showForwardMenu;
       }
     },
-
-    closeOptions(event) {
-      if (!this.$el.contains(event.target)) {
-        this.messageOptions = {};
+    showCommentEmojis(messageId) {
+      this.closeAllMenus();
+      if (!this.messageOptions[messageId]) {
+        this.messageOptions[messageId] = {
+          showForwardMenu: false,
+          showCommentEmojis: true,
+          reactions: [],
+        };
+      } else {
+        this.messageOptions[messageId].showCommentEmojis = !this.messageOptions[messageId].showCommentEmojis;
       }
     },
-
-    forwardMessage(message) {
-      // Implement forward message logic
+    closeForwardMenu(messageId) {
+      if (this.messageOptions[messageId]) {
+        this.messageOptions[messageId].showForwardMenu = false;
+      }
     },
-
-    commentOnMessage(message) {
-      // Implement comment on message logic
+    closeCommentEmojis(messageId) {
+      if (this.messageOptions[messageId]) {
+        this.messageOptions[messageId].showCommentEmojis = false;
+      }
+    },
+    closeAllMenus() {
+      for (const id in this.messageOptions) {
+        this.messageOptions[id].showForwardMenu = false;
+        this.messageOptions[id].showCommentEmojis = false;
+      }
+    },
+    handleOutsideClick(event) {
+      const messageContent = this.$el.querySelector('.message-content');
+      if (
+        messageContent &&
+        !messageContent.contains(event.target)
+      ) {
+        this.closeAllMenus();
+      }
+    },
+    async fetchForwardConversations(messageId) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get('users/me/conversations', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const conversations = response.data.filter(conv => conv.id !== this.conversationId);
+        this.messageOptions[messageId].forwardConversations = conversations;
+      } catch (error) {
+        console.error("Failed to fetch conversations:", error);
+        alert("Failed to fetch conversations. Please try again.");
+      }
+    },
+    async forwardMessage(targetConversationId, messageId) {
+      if (!targetConversationId) {
+        alert("Please select a conversation to forward the message.");
+        return;
+      }
+      const message = this.messages.find(m => m.id === messageId);
+      if (!message) return;
+      try {
+        const token = localStorage.getItem("token");
+        await axios.post(
+          `/conversations/${targetConversationId}/messages/forward`,
+          { sourceMessageId: message.id },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        alert("Message forwarded successfully!");
+        this.closeForwardMenu(messageId);
+      } catch (error) {
+        console.error("Failed to forward message:", error);
+        alert("Failed to forward message. Please try again.");
+      }
+    },
+    sendReaction(emoji, messageId) {
+      const message = this.messages.find(m => m.id === messageId);
+      if (!message) return;
+      try {
+        const token = localStorage.getItem("token");
+        axios.post(
+          `/conversations/${this.conversationId}/messages/${messageId}/comments`,
+          { emoji: emoji },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        ).then(() => {
+          this.messageOptions[messageId].reactions.push({ emoji: emoji });
+          this.closeCommentEmojis(messageId);
+        }).catch(error => {
+          console.error("Failed to send reaction:", error);
+          alert("Failed to send reaction. Please try again.");
+        });
+      } catch (error) {
+        console.error("Failed to send reaction:", error);
+      }
     },
   },
   mounted() {
     this.fetchMessages();
-    document.addEventListener('click', this.closeOptions);
+    document.addEventListener('click', this.handleOutsideClick);
+  },
+  beforeDestroy() {
+    document.removeEventListener('click', this.handleOutsideClick);
   },
 };
 </script>
@@ -178,33 +306,47 @@ export default {
   box-sizing: border-box;
 }
 
-.options-button {
-  display: none;
+.forward-button, .delete-button {
   background-color: #00000000;
+  border: none;
   position: absolute;
   top: 1px;
   right: 1px;
-  border: 1px solid rgba(0, 0, 0, 0.07); 
-  border-radius: 5px; 
-  box-sizing: border-box;
+  cursor: pointer;
 }
 
-.message-content:hover .options-button {
+.delete-button {
+  right: 20px;
+}
+
+.message-content:hover .forward-button, .message-content:hover .delete-button {
   display: block;
 }
 
-.options-menu {
-  display: none;
+.forward-options, .comment-emojis {
   position: absolute;
   top: 30px;
   right: 0;
-  background-color: #5ee3dd;
+  background-color: #ffffff62;
   border-radius: 5px;
   padding: 5px;
 }
 
-.message-content .options-menu {
-  display: block;
+.comment-emojis {
+  display: flex;
+  flex-direction: row;
+}
+
+.emoji-button {
+  background-color: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.emoji-button:hover {
+  background-color: #cccccc;
 }
 
 .chat-messages {
@@ -262,7 +404,7 @@ export default {
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 92vh; 
+  height: 92vh;
   overflow: hidden;
 }
 
@@ -279,12 +421,12 @@ export default {
   padding: 10px;
   background-color: white;
   border-top: 1px solid #ccc;
-  position: sticky; 
+  position: sticky;
   bottom: 0;
 }
 
 .attach-button {
-  background-color: #25d366; 
+  background-color: #25d366;
   color: white;
   border: none;
   padding: 10px;
@@ -298,7 +440,7 @@ export default {
 }
 
 .message-input {
-  flex: 1; 
+  flex: 1;
   padding: 12px;
   border: 1px solid #ccc;
   border-radius: 5px;
@@ -306,7 +448,7 @@ export default {
 }
 
 .send-button {
-  background-color: #128c7e; 
+  background-color: #128c7e;
   color: white;
   border: none;
   padding: 12px 20px;
@@ -318,4 +460,59 @@ export default {
 .send-button:hover {
   background-color: #0f7c6a;
 }
+
+.forward-select {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background-color: #ffffffcd;
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+
+.forward-select:focus {
+  outline: none;
+  border-color: #999;
+}
+
+.button-style {
+  background-color: #ffffff62;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+.button-style:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
 </style>
+
+
+
+
+async sendMessage() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      this.$router.push({ path: "/" });
+      return;
+    }
+    const response = await axios.post(
+      `/conversations/${this.conversationId}/messages`,
+      { content: this.message },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    this.message = "";
+    this.fetchMessages();
+  } catch (error) {
+    console.error("Failed to send message:", error);
+  }
+},
