@@ -172,3 +172,14 @@ func (db *appdbimpl) LeaveGroup(groupID, userID string) error {
 	}
 	return nil
 }
+
+func (db *appdbimpl) AddUserToGroup(conversationID string, userID string) error {
+	_, err := db.c.Exec(
+		"INSERT INTO conversation_members (conversationId, userId) VALUES (?, ?)",
+		conversationID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("error adding user to group: %w", err)
+	}
+	return nil
+}

@@ -270,3 +270,36 @@ func (rt *_router) leaveGroup(
 
 	w.WriteHeader(http.StatusOK)
 }
+
+// Add this to your router initialization
+// rt.router.POST("/groups/:groupId/addToGroup", rt.wrap(rt.addToGroup))
+
+func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	groupID := ps.ByName("groupId")
+
+	// Get authenticated user
+	_, err := rt.getAuthenticatedUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse request body
+	var request struct {
+		UserID string `json:"userId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	// Add user to group
+	err = rt.db.AddUserToGroup(groupID, request.UserID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to add user to group")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

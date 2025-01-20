@@ -75,6 +75,7 @@
     },
     data() {
       return {
+        token: localStorage.getItem("token"),
         groupId: this.$route.params.uuid,
         groupName: localStorage.getItem("groupName"),
         groupPhoto: null,
@@ -119,12 +120,11 @@
       async updateGroupPhoto() {
         if (!this.newGroupPhoto) return;
         try {
-          const token = localStorage.getItem("token");
           const formData = new FormData();
           formData.append("photo", this.newGroupPhoto);
           await axios.put(`/groups/${this.groupId}/setGroupPhoto`, formData, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${this.token}`,
             },
           });
           alert("Group photo updated successfully!");
@@ -138,13 +138,12 @@
       async updateGroupName() {
         if (!this.newGroupName || this.newGroupName === this.groupName) return;
         try {
-          const token = localStorage.getItem("token");
             await axios.put(
             `/groups/${this.groupId}/setGroupName`,
             { groupName: this.newGroupName },
             {
               headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${this.token}`,
               },
             }
             );
@@ -161,12 +160,10 @@
         if (!confirm('Are you sure you want to leave this group?')) {
           return;
         }
-        
         try {
-          const token = localStorage.getItem("token");
           await axios.delete(`/groups/${this.groupId}/leaveGroup`, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${this.token}`,
             },
           });
           this.$router.push({ path: "/groups" });
@@ -205,9 +202,16 @@
 
       async handleAddToGroup(userId) {
         if (this.isMember(userId)) return;
-      
         try {
-          await axios.post(`/groups/${this.groupId}/addToGroup`, { userId });
+          await axios.post(`/groups/${this.groupId}/addToGroup`, 
+          {  
+            userId: userId,
+          },
+          {
+              headers: {
+              Authorization: `Bearer ${this.token}`,
+              },}
+            );
           this.members.push(userId);
           this.errormsg = null;
         } catch (error) {
