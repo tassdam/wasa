@@ -488,29 +488,3 @@ export default {
   cursor: not-allowed;
 }
 </style>
-
-
-
-
-async sendMessage() {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      this.$router.push({ path: "/" });
-      return;
-    }
-    const response = await axios.post(
-      `/conversations/${this.conversationId}/messages`,
-      { content: this.message },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    this.message = "";
-    this.fetchMessages();
-  } catch (error) {
-    console.error("Failed to send message:", error);
-  }
-},
