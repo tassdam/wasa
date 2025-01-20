@@ -63,11 +63,9 @@
     <ErrorMsg v-if="errormsg" :msg="errormsg" />
   </div>
 </template>
-  
   <script>
   import axios from "../services/axios";
   import ErrorMsg from "../components/ErrorMsg.vue";
-  
   export default {
     name: "GroupEditView",
     components: {

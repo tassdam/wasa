@@ -1,33 +1,51 @@
 <template>
-  <div class="profile-container">
-    <div class="profile-header">
-      <div class="photo-container">
-        <img v-if="userPhoto" :src="userPhoto" alt="User Photo" class="profile-photo" />
-        <p v-else class="no-photo-placeholder">No Photo</p>
-      </div>
-      <div class="username-container">
-        <h1 class="username">{{ userName }}</h1>
-        <div class="update-username-section">
-          <input
-            v-model="newUserName"
-            placeholder="Enter new username"
-            maxlength="16"
-            minlength="3"
-          />
-          <button
-            @click="updateUsername"
-            :disabled="!newUserName || newUserName === userName"
-          >
-            Update Username
-          </button>
+  <div>
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+      <h1 class="h2">{{ userName }}, here is your profile</h1>
+      <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="refresh">Refresh</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="logOut">Log Out</button>
         </div>
-        <div class="update-photo-section">
-          <input type="file" @change="handlePhotoUpload" accept="image/*" />
-          <button @click="updatePhoto" :disabled="!newPhoto">Update Photo</button>
+        <div class="btn-group me-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" @click="newGroup">New group</button>
         </div>
       </div>
     </div>
-    <ErrorMsg v-if="errormsg" :msg="errormsg" />
+    
+    <div class="profile-container">
+      <div class="profile-header">
+        <div class="photo-container">
+          <img v-if="userPhoto" :src="userPhoto" alt="User Photo" class="profile-photo" />
+          <p v-else class="no-photo-placeholder">No Photo</p>
+        </div>
+        <div class="username-container">
+          <h1 class="username">{{ userName }}</h1>
+          <div class="update-username-section">
+            <input
+              v-model="newUserName"
+              placeholder="Enter new username"
+              maxlength="16"
+              minlength="3"
+            />
+            <button
+              class="custom-button"
+              @click="updateUsername"
+              :disabled="!newUserName || newUserName === userName"
+            >
+              Update Username
+            </button>
+          </div>
+          <div class="update-photo-section">
+            <input type="file" @change="handlePhotoUpload" accept="image/*" />
+            <button class="custom-button" @click="updatePhoto" :disabled="!newPhoto">
+              Update Photo
+            </button>
+          </div>
+        </div>
+      </div>
+      <ErrorMsg v-if="errormsg" :msg="errormsg" />
+    </div>
   </div>
 </template>
 
@@ -117,6 +135,16 @@ export default {
         this.errormsg = "Failed to update username. Please try again.";
       }
     },
+    refresh() {
+      this.fetchUserProfile();
+    },
+    logOut() {
+      localStorage.clear();
+      this.$router.push({ path: "/" });
+    },
+    newGroup() {
+      this.$router.push({ path: "/new-group" });
+    }
   },
   mounted() {
     this.fetchUserProfile();
@@ -141,7 +169,6 @@ export default {
 }
 
 .photo-container {
-  flex: 0 0 auto;
   width: 120px;
   height: 120px;
   border-radius: 50%;
@@ -186,23 +213,30 @@ input {
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  flex: 1;
+  max-width: 300px;
 }
 
-button {
-  padding: 8px 12px;
-  background-color: #007bff;
-  color: white;
-  border: none;
+.custom-button {
+  padding: 8px 16px;
+  background-color: transparent;
+  border: 1px solid #007bff;
+  color: #007bff;
   border-radius: 4px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-button:disabled {
-  background-color: #ccc;
+.custom-button:hover:not(:disabled) {
+  background-color: #007bff;
+  color: white;
+}
+
+.custom-button:disabled {
+  border-color: #cccccc;
+  color: #cccccc;
   cursor: not-allowed;
-}
-
-button:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: transparent;
 }
 </style>

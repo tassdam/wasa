@@ -1,40 +1,54 @@
 <template>
-  <div class="search-container">
-    <h1 class="page-title">Search People</h1>
-    <form @submit.prevent="searchUsers" class="search-form">
-      <input
-        id="username"
-        v-model="query"
-        class="search-box"
-        type="text"
-        placeholder="Search by username"
-      />
-      <button class="search-button" type="submit">Search</button>
-    </form>
-    <div v-if="error" class="error-box">
-      {{ error }}
-    </div>
-    <div v-if="loading">
-      <LoadingSpinner />
-    </div>
-    <div v-if="!loading && showResults" class="results-section">
-      <h2 class="results-title">Results:</h2>
-      <template v-if="users.length > 0">
-        <div v-for="user in users" :key="user.id" class="user-card">
-          <h5 @click="viewProfile(user.username)" class="user-name">
-            @{{ user.name }}
-          </h5>
-          <button
-            class="text-button"
-            @click="navigateToConversation(user.id, user.name)"
-          >
-            Text
-          </button>
+  <div>
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+      <h1 class="h2">{{ userName }}, search and text people!</h1>
+      <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="refresh">Refresh</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="logOut">Log Out</button>
         </div>
-      </template>
-      <template v-else>
-        <p class="no-results">No users found matching "{{ lastQuery }}"</p>
-      </template>
+        <div class="btn-group me-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" @click="newGroup">New group</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-container">
+      <form @submit.prevent="searchUsers" class="search-form">
+        <input
+          id="username"
+          v-model="query"
+          class="search-box"
+          type="text"
+          placeholder="Search by username"
+        />
+        <button class="search-button" type="submit">Search</button>
+      </form>
+      <div v-if="error" class="error-box">
+        {{ error }}
+      </div>
+      <div v-if="loading">
+        <LoadingSpinner />
+      </div>
+      <div v-if="!loading && showResults" class="results-section">
+        <h2 class="results-title">Results:</h2>
+        <template v-if="users.length > 0">
+          <div v-for="user in users" :key="user.id" class="user-card">
+            <h5 @click="viewProfile(user.username)" class="user-name">
+              @{{ user.name }}
+            </h5>
+            <button
+              class="text-button"
+              @click="navigateToConversation(user.id, user.name)"
+            >
+              Text
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <p class="no-results">No users found matching "{{ lastQuery }}"</p>
+        </template>
+      </div>
     </div>
   </div>
 </template>
@@ -49,12 +63,8 @@ export default {
     LoadingSpinner,
   },
   data() {
-    const token = localStorage.getItem("token");
-        if (!token) {
-          this.$router.push({ path: "/" });
-          return;
-        }
     return {
+      userName: localStorage.getItem("name"),
       query: "",
       lastQuery: "",
       users: [],
@@ -94,11 +104,11 @@ export default {
     },
     navigateToConversation(recipientId, recipientName) {
       localStorage.setItem("conversationName", recipientName);
-      const senderId = localStorage.getItem("token"); // Get the sender's ID from local storage
+      const senderId = localStorage.getItem("token");
       axios
         .post(`/conversations`, { senderId, recipientId })
         .then((response) => {
-          const conversationId = response.data.conversationId; // Backend returns conversationId
+          const conversationId = response.data.conversationId;
           this.$router.push({
             path: `/conversations/${conversationId}`
           });
@@ -106,8 +116,24 @@ export default {
         .catch((error) => {
           console.error("Error starting conversation:", error);
         });
+    },
+    refresh() {
+      this.searchUsers();
+    },
+    logOut() {
+      localStorage.clear();
+      this.$router.push({ path: "/" });
+    },
+    newGroup() {
+      this.$router.push({ path: "/new-group" });
     }
   },
+  mounted() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      this.$router.push({ path: "/" });
+    }
+  }
 };
 </script>
 
@@ -119,7 +145,6 @@ export default {
   margin: 0 auto;
 }
 
-/* Page Title */
 .page-title {
   font-size: 28px;
   font-weight: bold;
