@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -81,18 +82,51 @@ func (db *appdbimpl) GetMyGroups(userID string) ([]Conversation, error) {
 	return groups, nil
 }
 
-func (db *appdbimpl) GetGroupPhoto(groupID string) (Group, error) {
-	var group Group
+func (db *appdbimpl) GetGroupInfo(groupID string) (Conversation, error) {
+	var group Conversation
+	var photo []byte
+	var membersCSV sql.NullString
+
 	err := db.c.QueryRow(`
-		SELECT id, name, conversationPhoto 
-		FROM conversations 
-		WHERE id = ?
-	`, groupID).Scan(&group.Id, &group.Name, &group.Photo)
+        SELECT 
+            c.id,
+            c.name,
+            c.conversationPhoto,
+            (SELECT GROUP_CONCAT(userId) FROM conversation_members WHERE conversationId = c.id) AS members
+        FROM conversations c
+        WHERE c.id = ? AND c.type = 'group'`,
+		groupID,
+	).Scan(
+		&group.Id,
+		&group.Name,
+		&photo,
+		&membersCSV,
+	)
+
 	if err == sql.ErrNoRows {
-		return Group{}, ErrGroupDoesNotExist
-	} else if err != nil {
-		return Group{}, fmt.Errorf("error fetching group by ID: %w", err)
+		return Conversation{}, ErrGroupDoesNotExist
 	}
+	if err != nil {
+		return Conversation{}, fmt.Errorf("error fetching group by ID: %w", err)
+	}
+
+	// Convert BLOB photo to base64 string
+	if len(photo) > 0 {
+		group.ConversationPhoto = sql.NullString{
+			String: base64.StdEncoding.EncodeToString(photo),
+			Valid:  true,
+		}
+	} else {
+		group.ConversationPhoto = sql.NullString{Valid: false}
+	}
+
+	// Convert CSV members to slice
+	if membersCSV.Valid {
+		group.Members = strings.Split(membersCSV.String, ",")
+	} else {
+		group.Members = []string{}
+	}
+
 	return group, nil
 }
 

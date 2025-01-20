@@ -86,7 +86,7 @@ type AppDatabase interface {
 	GetMessage(messageID, userID string) (Message, error)
 	CreateGroupConversation(conversationID string, memberIDs []string, name string, photo []byte) error
 	GetMyGroups(userID string) ([]Conversation, error)
-	GetGroupPhoto(groupID string) (Group, error)
+	GetGroupInfo(groupID string) (Conversation, error)
 	UpdateGroupName(groupId, newName string) error
 	UpdateGroupPhoto(groupID string, photo []byte) error
 	LeaveGroup(groupID, userID string) error

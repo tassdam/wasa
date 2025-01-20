@@ -1,8 +1,8 @@
 package api
 
 import (
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -98,7 +98,7 @@ func (rt *_router) getMyGroups(
 	}
 }
 
-func (rt *_router) getGroupPhoto(
+func (rt *_router) getGroup(
 	w http.ResponseWriter,
 	r *http.Request,
 	ps httprouter.Params,
@@ -106,32 +106,37 @@ func (rt *_router) getGroupPhoto(
 ) {
 	groupID := ps.ByName("groupId")
 
+	// Authentication
 	_, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	group, dbErr := rt.db.GetGroupPhoto(groupID)
-
-	if dbErr == database.ErrGroupDoesNotExist {
-		http.Error(w, "Group not found", http.StatusNotFound)
-		return
-	} else if dbErr != nil {
+	group, dbErr := rt.db.GetGroupInfo(groupID)
+	if dbErr != nil {
+		if errors.Is(dbErr, database.ErrGroupDoesNotExist) {
+			http.Error(w, "Group not found", http.StatusNotFound)
+			return
+		}
 		ctx.Logger.WithError(dbErr).Error("Failed to fetch group details")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]interface{}{}
+	response := map[string]interface{}{
+		"id":      group.Id,
+		"name":    group.Name,
+		"members": group.Members,
+	}
 
-	if group.Photo != nil {
-		response["groupPhoto"] = base64.StdEncoding.EncodeToString(group.Photo)
+	if group.ConversationPhoto.Valid {
+		response["groupPhoto"] = group.ConversationPhoto.String
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		ctx.Logger.WithError(err).Error("Failed to encode user response")
+		ctx.Logger.WithError(err).Error("Failed to encode group response")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }

@@ -24,10 +24,10 @@ func (rt *_router) Handler() http.Handler {
 	// rt.router.POST("/conversations/:conversationId/messages/:messageId/comments", rt.wrap(rt.commentMessage))
 	// rt.router.DELETE("/conversations/:conversationId/messages/:messageId/comments/:commentId", rt.wrap(rt.uncommentMessage))
 	rt.router.POST("/groups", rt.wrap(rt.createGroup))
-	rt.router.GET("/groups/:groupId", rt.wrap(rt.getGroupPhoto))
+	rt.router.GET("/groups/:groupId", rt.wrap(rt.getGroup))
 	rt.router.PUT("/groups/:groupId/setGroupName", rt.wrap(rt.setGroupName))
 	rt.router.PUT("/groups/:groupId/setGroupPhoto", rt.wrap(rt.setGroupPhoto))
-	//rt.router.POST("/groups/:groupId/addMembers", rt.wrap(rt.addToGroup))
+	//rt.router.POST("/groups/:groupId/addToGroup", rt.wrap(rt.addToGroup))
 	rt.router.DELETE("/groups/:groupId/leaveGroup", rt.wrap(rt.leaveGroup))
 
 	// Special routes
