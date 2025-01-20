@@ -24,6 +24,11 @@
             <input type="file" @change="handleGroupPhotoUpload" accept="image/*" />
             <button @click="updateGroupPhoto" :disabled="!newGroupPhoto">Update Group Photo</button>
           </div>
+          <div class="leave-group-section">
+            <button class="leave-button" @click="leaveGroup">
+              Leave Group
+            </button>
+          </div>
         </div>
       </div>
       <ErrorMsg v-if="errormsg" :msg="errormsg" />
@@ -116,6 +121,24 @@
           this.errormsg = "Failed to update group name. Please try again.";
         }
       },
+      async leaveGroup() {
+        if (!confirm('Are you sure you want to leave this group?')) {
+          return;
+        }
+        
+        try {
+          const token = localStorage.getItem("token");
+          await axios.delete(`/groups/${this.groupId}/leaveGroup`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          this.$router.push({ path: "/groups" });
+        } catch (error) {
+          console.error("Failed to leave group:", error);
+          this.errormsg = "Failed to leave group. Please try again.";
+        }
+      },  
     },
     mounted() {
       this.fetchGroupProfile();

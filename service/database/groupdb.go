@@ -128,3 +128,13 @@ func (db *appdbimpl) UpdateGroupPhoto(groupID string, photo []byte) error {
 
 	return nil
 }
+
+func (db *appdbimpl) LeaveGroup(groupID, userID string) error {
+	_, err := db.c.Exec(`
+	DELETE FROM conversation_members WHERE conversationId = ? AND userId = ?
+	`, groupID, userID)
+	if err != nil {
+		return fmt.Errorf("error leaving group: %w", err)
+	}
+	return nil
+}

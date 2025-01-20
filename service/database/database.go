@@ -89,6 +89,7 @@ type AppDatabase interface {
 	GetGroupPhoto(groupID string) (Group, error)
 	UpdateGroupName(groupId, newName string) error
 	UpdateGroupPhoto(groupID string, photo []byte) error
+	LeaveGroup(groupID, userID string) error
 }
 
 // appdbimpl is the internal implementation of AppDatabase.

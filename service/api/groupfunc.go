@@ -241,3 +241,27 @@ func (rt *_router) setGroupPhoto(
 		ctx.Logger.WithError(err).Error("Failed to encode photo update response")
 	}
 }
+
+func (rt *_router) leaveGroup(
+	w http.ResponseWriter,
+	r *http.Request,
+	ps httprouter.Params,
+	ctx reqcontext.RequestContext,
+) {
+	groupID := ps.ByName("groupId")
+
+	userID, err := rt.getAuthenticatedUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	err = rt.db.LeaveGroup(groupID, userID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to leave group")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
