@@ -11,8 +11,15 @@ var ErrConversationDoesNotExist = errors.New("Conversation does not exist")
 var ErrMessageDoesNotExist = errors.New("Message does not exist")
 var ErrCommentDoesNotExist = errors.New("Comment does not exist")
 var ErrUnauthorizedToDeleteMessage = errors.New("Unauthorized To Delete Message")
+var ErrGroupDoesNotExist = errors.New("Group does not exist")
 
 type User struct {
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+	Photo []byte `json:"photo,omitempty"`
+}
+
+type Group struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
 	Photo []byte `json:"photo,omitempty"`
@@ -79,6 +86,9 @@ type AppDatabase interface {
 	GetMessage(messageID, userID string) (Message, error)
 	CreateGroupConversation(conversationID string, memberIDs []string, name string, photo []byte) error
 	GetMyGroups(userID string) ([]Conversation, error)
+	GetGroupPhoto(groupID string) (Group, error)
+	UpdateGroupName(groupId, newName string) error
+	UpdateGroupPhoto(groupID string, photo []byte) error
 }
 
 // appdbimpl is the internal implementation of AppDatabase.

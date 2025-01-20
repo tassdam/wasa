@@ -53,6 +53,7 @@ func (rt *_router) setMyUserName(
 		ctx.Logger.WithError(err).Error("failed to encode updated user response")
 	}
 }
+
 func (rt *_router) setMyPhoto(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -113,8 +114,6 @@ func (rt *_router) setMyPhoto(
 	}
 }
 
-// getAuthenticatedUserID is a helper function to retrieve the user ID from the request.
-// This is just an example; your actual auth logic may differ (e.g., Bearer tokens).
 func (rt *_router) getAuthenticatedUserID(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {

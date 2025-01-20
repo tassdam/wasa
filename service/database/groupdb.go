@@ -80,3 +80,51 @@ func (db *appdbimpl) GetMyGroups(userID string) ([]Conversation, error) {
 
 	return groups, nil
 }
+
+func (db *appdbimpl) GetGroupPhoto(groupID string) (Group, error) {
+	var group Group
+	err := db.c.QueryRow(`
+		SELECT id, name, conversationPhoto 
+		FROM conversations 
+		WHERE id = ?
+	`, groupID).Scan(&group.Id, &group.Name, &group.Photo)
+	if err == sql.ErrNoRows {
+		return Group{}, ErrGroupDoesNotExist
+	} else if err != nil {
+		return Group{}, fmt.Errorf("error fetching group by ID: %w", err)
+	}
+	return group, nil
+}
+
+func (db *appdbimpl) UpdateGroupName(groupId, newName string) error {
+	res, err := db.c.Exec(`UPDATE conversations SET name=? WHERE id=?`, newName, groupId)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	} else if affected == 0 {
+		return ErrUserDoesNotExist
+	}
+	return nil
+}
+
+func (db *appdbimpl) UpdateGroupPhoto(groupID string, photo []byte) error {
+	var exists bool
+	err := db.c.QueryRow(`SELECT EXISTS(SELECT 1 FROM conversations WHERE id=?)`, groupID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrGroupDoesNotExist
+	}
+
+	// 2. Update the user's photo column (must exist in your database schema)
+	_, err = db.c.Exec(`UPDATE conversations SET conversationPhoto=? WHERE id=?`, photo, groupID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

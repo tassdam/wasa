@@ -73,7 +73,9 @@ func (rt *_router) getConversation(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
+
 	conversationID := ps.ByName("conversationId")
+
 	if conversationID == "" {
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
 		return

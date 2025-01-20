@@ -31,19 +31,20 @@ export default {
         this.loading = false;
       }
     },
-    viewGroup(groupId) {   
-      this.$router.push({
-        path: `/groups/${groupId}`
-      });
+    viewGroup(groupId, groupName) {
+        localStorage.setItem("groupName", groupName);
+        this.$router.push({
+            path: `/groups/${groupId}`
+        });
     },
     refresh() {
-      this.loadGroups();
+        this.loadGroups();
     },
     logOut() {
-      this.$router.push({ path: "/" });
+        this.$router.push({ path: "/" });
     },
     newGroup() {
-      this.$router.push({ path: "/new-group" });
+        this.$router.push({ path: "/new-group" });
     }
   },
   mounted() {
@@ -78,7 +79,7 @@ export default {
           v-for="group in groups"
           :key="group.id"
           class="conversation-block"
-          @click="viewGroup(group.id)"
+          @click="viewGroup(group.id, group.name)"
         >
           <div class="conversation-photo">
             <img

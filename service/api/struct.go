@@ -17,6 +17,10 @@ type UpdateUserRequest struct {
 	Name string `json:"name"` // New username
 }
 
+type UpdateGroupRequest struct {
+	Name string `json:"groupName"`
+}
+
 // User corresponds to the User schema.
 type User struct {
 	ID    string `json:"id"`   // Unique identifier of the user
