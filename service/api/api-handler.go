@@ -33,6 +33,7 @@ func (rt *_router) Handler() http.Handler {
 
 	// // "Groups" part
 	rt.router.POST("/groups", rt.wrap(rt.createGroup))
+	rt.router.GET("/users/me/groups", rt.wrap(rt.getMyGroups))
 	// rt.router.POST("/groups/:groupId/members", rt.wrap(rt.addToGroup))
 	// rt.router.DELETE("/groups/:groupId/members/me", rt.wrap(rt.leaveGroup))
 	// rt.router.PUT("/groups/:groupId", rt.wrap(rt.setGroupName))

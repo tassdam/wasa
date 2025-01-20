@@ -77,7 +77,8 @@ type AppDatabase interface {
 	GetUsersPhoto(userID string) (User, error)
 	DeleteMessage(conversationID, messageID, userID string) error
 	GetMessage(messageID, userID string) (Message, error)
-	CreateGroupConversation(conversationID string, senderID string, recipientIDs []string, name string, photo []byte) error
+	CreateGroupConversation(conversationID string, memberIDs []string, name string, photo []byte) error
+	GetMyGroups(userID string) ([]Conversation, error)
 }
 
 // appdbimpl is the internal implementation of AppDatabase.
@@ -121,7 +122,6 @@ func New(db *sql.DB) (AppDatabase, error) {
 		conversationMembersTable := `CREATE TABLE conversation_members (
 			conversationId TEXT NOT NULL,
 			userId TEXT NOT NULL,
-			isAdmin BOOLEAN NOT NULL DEFAULT 0,
 			FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
 			PRIMARY KEY(conversationId, userId)

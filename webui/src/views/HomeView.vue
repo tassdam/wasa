@@ -94,7 +94,7 @@ export default {
         >
           <div class="conversation-photo">
             <img
-              v-if="conv.type === 'direct' && conv.conversationPhoto.String"
+              v-if="conv.conversationPhoto.String"
               :src="'data:image/png;base64,' + conv.conversationPhoto.String"
               alt="Profile Picture"
               class="profile-picture"

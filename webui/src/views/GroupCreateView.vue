@@ -167,10 +167,9 @@
         this.loading = true;
         this.error = "";
         const formData = new FormData();
-        formData.append("senderId", localStorage.getItem("token"));
         formData.append("name", this.groupName);
         formData.append("image", this.file);
-        formData.append("members", JSON.stringify(this.selectedUsers.map(u => u.id)));
+        formData.append("members", JSON.stringify([...this.selectedUsers.map(u => u.id), localStorage.getItem("token")]));
         try {
           const response = await axios.post(`/groups`, formData, {
             headers: {

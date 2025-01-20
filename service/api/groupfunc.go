@@ -22,20 +22,17 @@ func (rt *_router) createGroup(
 		return
 	}
 
-	// Retrieve form values
-	senderID := r.FormValue("senderId")
 	name := r.FormValue("name")
 	membersStr := r.FormValue("members")
 
 	// Unmarshal "members" JSON string into a slice of strings
-	var recipients []string
-	err = json.Unmarshal([]byte(membersStr), &recipients)
+	var members []string
+	err = json.Unmarshal([]byte(membersStr), &members)
 	if err != nil {
 		http.Error(w, "Invalid members format", http.StatusBadRequest)
 		return
 	}
 
-	// Retrieve and read the image file
 	file, _, err := r.FormFile("image")
 	if err != nil {
 		http.Error(w, "No image file provided", http.StatusBadRequest)
@@ -50,7 +47,6 @@ func (rt *_router) createGroup(
 		return
 	}
 
-	// Generate a new conversation ID
 	conversationID, err := generateNewID()
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to generate conversation ID")
@@ -58,8 +54,7 @@ func (rt *_router) createGroup(
 		return
 	}
 
-	// Create the group conversation in the database
-	err = rt.db.CreateGroupConversation(conversationID, senderID, recipients, name, photo)
+	err = rt.db.CreateGroupConversation(conversationID, members, name, photo)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to create new conversation")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -72,5 +67,31 @@ func (rt *_router) createGroup(
 		"conversationId": conversationID,
 	}); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode response")
+	}
+}
+
+func (rt *_router) getMyGroups(
+	w http.ResponseWriter,
+	r *http.Request,
+	ps httprouter.Params,
+	ctx reqcontext.RequestContext,
+) {
+	userID, err := rt.getAuthenticatedUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	conversations, err := rt.db.GetMyGroups(userID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to fetch user's conversations")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the conversations as JSON
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(conversations); err != nil {
+		ctx.Logger.WithError(err).Error("Failed to encode conversations")
 	}
 }
