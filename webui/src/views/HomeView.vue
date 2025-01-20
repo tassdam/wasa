@@ -49,7 +49,7 @@ export default {
       return text.substring(0, lastSpaceIndex) + clamp;
     },
     refresh() {
-      this.loadConversations(); // Reload conversations
+      this.loadConversations(); 
     },
     logOut() {
       this.$router.push({ path: "/" });

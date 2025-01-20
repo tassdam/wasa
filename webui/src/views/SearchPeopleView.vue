@@ -118,7 +118,7 @@ export default {
         });
     },
     refresh() {
-      this.searchUsers();
+      this.$router.push({ path: "/search" });
     },
     logOut() {
       localStorage.clear();
