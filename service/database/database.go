@@ -92,6 +92,7 @@ type AppDatabase interface {
 	LeaveGroup(groupID, userID string) error
 	AddUserToGroup(conversationID string, userID string) error
 	CommentMessage(commentID, messageID, authorID string) error
+	UncommentMessage(messageID, authorID string) error
 }
 
 // appdbimpl is the internal implementation of AppDatabase.

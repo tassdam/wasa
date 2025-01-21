@@ -152,16 +152,16 @@ export default {
 
         if (!token || message.senderId === this.userToken) return;
 
-        const hasReacted = (message.reactingUserIDs || []).includes(this.userToken);
+        const hasReacted = (message.reactingUserIds || []).includes(token);
         
         if (hasReacted) {
           await axios.delete(
-            `/conversations/${this.conversationId}/message/${message.id}/comment`,{},
+            `/conversations/${this.conversationId}/message/${message.id}/comment`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          const userIndex = message.reactingUserIDs.indexOf(this.userToken);
+          const userIndex = message.reactingUserIds.indexOf(this.userToken);
           if (userIndex > -1) {
-            message.reactingUserIDs.splice(userIndex, 1);
+            message.reactingUserIds.splice(userIndex, 1);
             message.reactionCount = Math.max(0, message.reactionCount - 1);
           }
         } else {
@@ -169,10 +169,10 @@ export default {
             `/conversations/${this.conversationId}/message/${message.id}/comment`,{},
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          if (!message.reactingUserIDs) {
-            message.reactingUserIDs = [];
+          if (!message.reactingUserIds) {
+            message.reactingUserIds = [];
           }
-          message.reactingUserIDs.push(this.userToken);
+          message.reactingUserIds.push(this.userToken);
           message.reactionCount = (message.reactionCount || 0) + 1;
         }
       } catch (error) {
