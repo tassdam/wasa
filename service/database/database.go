@@ -51,10 +51,8 @@ type Message struct {
 }
 
 type Comment struct {
-	Id        string `json:"id"`
-	AuthorId  string `json:"authorId"`
-	Content   string `json:"content"`
-	Timestamp string `json:"timestamp"`
+	Id       string `json:"id"`
+	AuthorId string `json:"authorId"`
 }
 
 type ReadReceipt struct {
@@ -93,6 +91,7 @@ type AppDatabase interface {
 	UpdateGroupPhoto(groupID string, photo []byte) error
 	LeaveGroup(groupID, userID string) error
 	AddUserToGroup(conversationID string, userID string) error
+	CommentMessage(commentID, messageID, authorID string) error
 }
 
 // appdbimpl is the internal implementation of AppDatabase.

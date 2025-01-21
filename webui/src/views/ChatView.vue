@@ -133,7 +133,6 @@ export default {
             },
           }
         );
-        // Ensure reactingUserIDs exists as an array
         this.messages = (response.data.messages || []).map(msg => ({
           ...msg,
           reactingUserIDs: msg.reactingUserIDs || []
@@ -148,14 +147,16 @@ export default {
     },
     async toggleReaction(message) {
       try {
+
         const token = localStorage.getItem("token");
+
         if (!token || message.senderId === this.userToken) return;
 
         const hasReacted = (message.reactingUserIDs || []).includes(this.userToken);
         
         if (hasReacted) {
           await axios.delete(
-            `/conversations/${this.conversationId}/messages/${message.id}/comment`,
+            `/conversations/${this.conversationId}/message/${message.id}/comment`,{},
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const userIndex = message.reactingUserIDs.indexOf(this.userToken);
@@ -165,10 +166,9 @@ export default {
           }
         } else {
           await axios.post(
-            `/conversations/${this.conversationId}/messages/${message.id}/comment`,
+            `/conversations/${this.conversationId}/message/${message.id}/comment`,{},
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          // Update local state
           if (!message.reactingUserIDs) {
             message.reactingUserIDs = [];
           }
@@ -188,7 +188,7 @@ export default {
           return;
         }
         await axios.delete(
-          `/conversations/${this.conversationId}/messages/${message.id}`,
+          `/conversations/${this.conversationId}/message/${message.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -265,7 +265,7 @@ export default {
       try {
         const token = localStorage.getItem("token");
         await axios.post(
-          `/conversations/${this.conversationId}/messages/${messageId}/forward`,
+          `/conversations/${this.conversationId}/message/${messageId}/forward`,
           { 
             sourceMessageId: message.id,
             targetConversationId: targetConversationId 

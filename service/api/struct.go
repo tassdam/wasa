@@ -28,7 +28,6 @@ type User struct {
 	Photo []byte `json:"photo"`
 }
 
-// Message corresponds to the Message schema.
 type Message struct {
 	ID                 string    `json:"id"`                           // Unique identifier of the message
 	SenderID           string    `json:"senderId"`                     // ID of the user who sent the message

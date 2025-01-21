@@ -17,7 +17,7 @@ func (rt *_router) startConversation(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// Parse the request body to extract senderId and recipientId
+
 	var req struct {
 		SenderID    string `json:"senderId"`
 		RecipientID string `json:"recipientId"`
@@ -33,7 +33,6 @@ func (rt *_router) startConversation(
 		return
 	}
 
-	// Check if the conversation exists
 	conversationID, err := rt.db.GetDirectConversation(req.SenderID, req.RecipientID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to check conversation existence")
@@ -41,9 +40,8 @@ func (rt *_router) startConversation(
 		return
 	}
 
-	// If no conversation exists, create one
 	if conversationID == "" {
-		conversationID, err = generateNewID() // Use your existing UUID generation function
+		conversationID, err = generateNewID()
 		if err != nil {
 			ctx.Logger.WithError(err).Error("Failed to generate conversation ID")
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

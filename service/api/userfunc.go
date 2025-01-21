@@ -117,7 +117,7 @@ func (rt *_router) setMyPhoto(
 func (rt *_router) getAuthenticatedUserID(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-		return "", ErrUnauthorized // define a custom ErrUnauthorized if needed
+		return "", ErrUnauthorized
 	}
 	userID := authHeader[7:]
 	if userID == "" {
@@ -126,7 +126,6 @@ func (rt *_router) getAuthenticatedUserID(r *http.Request) (string, error) {
 	return userID, nil
 }
 
-// searchUsers handles GET /users/search to search for users by a partial username match.
 func (rt *_router) searchUsers(
 	w http.ResponseWriter,
 	r *http.Request,
