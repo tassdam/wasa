@@ -120,7 +120,7 @@
         this.users = [];
         this.showResults = false;
         try {
-          const response = await axios.get(`/users/search`, {
+          const response = await axios.get(`/search`, {
             params: { username: this.query },
           });
           this.users = response.data;
@@ -171,13 +171,13 @@
         formData.append("image", this.file);
         formData.append("members", JSON.stringify([...this.selectedUsers.map(u => u.id), localStorage.getItem("token")]));
         try {
-          const response = await axios.post(`/groups`, formData, {
+          await axios.post(`/groups`, formData, {
             headers: {
               'Content-Type': 'multipart/form-data'
             }
           });
           alert("Group created successfully!");
-          this.$router.push(`/groups/${response.data.id}`);
+          this.$router.push(`/home`);
         } catch (err) {
           const status = err.response?.status;
           const reason = err.response?.data?.message || "Failed to create group.";

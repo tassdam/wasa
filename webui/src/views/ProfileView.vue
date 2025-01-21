@@ -75,7 +75,7 @@ export default {
           this.$router.push({ path: "/" });
           return;
         }
-        const response = await axios.get("/users", {
+        const response = await axios.get("/users/photo", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -100,7 +100,7 @@ export default {
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append("photo", this.newPhoto);
-        await axios.put("/users/me/photo", formData, {
+        await axios.put("/users/photo", formData, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -118,7 +118,7 @@ export default {
       try {
         const token = localStorage.getItem("token");
         const response = await axios.put(
-          "/users/me",
+          "/users/name",
           { name: this.newUserName },
           {
             headers: {

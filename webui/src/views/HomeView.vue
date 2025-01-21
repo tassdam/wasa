@@ -19,7 +19,7 @@ export default {
           this.$router.push({ path: "/" });
           return;
         }
-        const response = await this.$axios.get("/users/me/conversations", {
+        const response = await this.$axios.get("/conversations", {
           headers: {
             Authorization: `Bearer ${token}`
           }

@@ -120,7 +120,7 @@
         try {
           const formData = new FormData();
           formData.append("photo", this.newGroupPhoto);
-          await axios.put(`/groups/${this.groupId}/setGroupPhoto`, formData, {
+          await axios.put(`/groups/${this.groupId}/photo`, formData, {
             headers: {
               Authorization: `Bearer ${this.token}`,
             },
@@ -137,7 +137,7 @@
         if (!this.newGroupName || this.newGroupName === this.groupName) return;
         try {
             await axios.put(
-            `/groups/${this.groupId}/setGroupName`,
+            `/groups/${this.groupId}/name`,
             { groupName: this.newGroupName },
             {
               headers: {
@@ -159,7 +159,7 @@
           return;
         }
         try {
-          await axios.delete(`/groups/${this.groupId}/leaveGroup`, {
+          await axios.delete(`/groups/${this.groupId}`, {
             headers: {
               Authorization: `Bearer ${this.token}`,
             },
@@ -180,7 +180,7 @@
         this.loading = true;
         this.errormsg = null;
         try {
-          const response = await axios.get(`/users/search`, {
+          const response = await axios.get(`/search`, {
             params: { username: this.query }
           });
           this.users = response.data;
@@ -201,7 +201,7 @@
       async handleAddToGroup(userId) {
         if (this.isMember(userId)) return;
         try {
-          await axios.post(`/groups/${this.groupId}/addToGroup`, 
+          await axios.post(`/groups/${this.groupId}`, 
           {  
             userId: userId,
           },

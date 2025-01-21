@@ -85,7 +85,7 @@ export default {
       this.users = [];
       this.showResults = false;
       try {
-        const response = await axios.get(`/users/search`, {
+        const response = await axios.get(`/search`, {
           params: { username: this.query },
         });
         this.users = response.data;

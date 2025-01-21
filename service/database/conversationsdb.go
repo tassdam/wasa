@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -183,13 +184,19 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
             m.forwardedMessageId, 
             m.attachment,
             u.name AS senderName,
-            u.photo AS senderPhoto
+            u.photo AS senderPhoto,
+            COUNT(c.id) AS reaction_count,
+            GROUP_CONCAT(c.authorId) AS reacting_users
         FROM 
             messages m
         JOIN 
             users u ON m.senderId = u.id
+        LEFT JOIN 
+            comments c ON m.id = c.messageId
         WHERE 
             m.conversationId = ?
+        GROUP BY 
+            m.id
         ORDER BY 
             m.timestamp ASC
     `
@@ -198,11 +205,14 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 		return nil, fmt.Errorf("error fetching messages: %w", err)
 	}
 	defer rows.Close()
+
 	var messages []Message
 	for rows.Next() {
 		var message Message
 		var forwardedMessage sql.NullString
 		var senderPhoto []byte
+		var reactingUsers sql.NullString
+
 		err := rows.Scan(
 			&message.Id,
 			&message.ConversationId,
@@ -213,25 +223,36 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 			&message.Attachment,
 			&message.SenderName,
 			&senderPhoto,
+			&message.ReactionCount,
+			&reactingUsers,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Handle photo encoding
 		if senderPhoto != nil {
 			message.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
-		} else {
-			message.SenderPhoto = ""
 		}
+
+		// Handle forwarded message
 		if forwardedMessage.Valid {
 			message.ForwardedMessage = &forwardedMessage.String
 		}
+
+		// Process reacting users
+		if reactingUsers.Valid {
+			message.ReactingUserIDs = strings.Split(reactingUsers.String, ",")
+		} else {
+			message.ReactingUserIDs = []string{}
+		}
+
 		messages = append(messages, message)
 	}
 	return messages, nil
 }
 
 func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
-	// SQL query to fetch conversations and the other member's photo for direct conversations
 	query := `
 	SELECT 
 		c.id,

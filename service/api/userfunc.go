@@ -74,7 +74,7 @@ func (rt *_router) setMyPhoto(
 		http.Error(w, "Failed to parse form. Ensure the file is below 10 MB.", http.StatusBadRequest)
 		return
 	}
-	file, fileHeader, err := r.FormFile("photo")
+	file, _, err := r.FormFile("photo")
 	if err != nil {
 		http.Error(w, "Failed to retrieve photo file", http.StatusBadRequest)
 		return
@@ -94,7 +94,7 @@ func (rt *_router) setMyPhoto(
 		http.Error(w, "Invalid file type. Only JPEG and PNG are supported.", http.StatusUnsupportedMediaType)
 		return
 	}
-	ctx.Logger.Infof("Received file: %s, size: %d bytes, type: %s", fileHeader.Filename, len(photoData), fileType)
+
 	err = rt.db.UpdateUserPhoto(userID, photoData)
 	if err == database.ErrUserDoesNotExist {
 		http.Error(w, "User not found", http.StatusNotFound)
