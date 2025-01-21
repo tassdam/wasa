@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -119,26 +120,58 @@ func (rt *_router) sendMessage(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// Extract conversationId from the route parameters
+
 	conversationID := ps.ByName("conversationId")
 	if conversationID == "" {
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
 		return
 	}
 
-	// Parse the request body
-	var req struct {
-		Content          string  `json:"content"`
-		ForwardedMessage *string `json:"forwardedMessageId,omitempty"`
-		Attachment       []byte  `json:"attachment,omitempty"` // Optional for photos/GIFs
+	// Parse multipart form data
+	err := r.ParseMultipartForm(32 << 20) // 32MB max memory
+	if err != nil {
+		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	content := r.FormValue("content")
+	forwardedMessageID := r.FormValue("forwardedMessageId")
+	var forwardedMessage *string
+	if forwardedMessageID != "" {
+		forwardedMessage = &forwardedMessageID
+	}
+
+	// Handle file upload
+	var attachment []byte
+	file, header, err := r.FormFile("attachment")
+	if err == nil {
+		defer file.Close()
+
+		// Validate file type
+		allowedTypes := map[string]bool{
+			"image/jpeg": true,
+			"image/png":  true,
+			"image/gif":  true,
+		}
+		if !allowedTypes[header.Header.Get("Content-Type")] {
+			http.Error(w, "Invalid file type. Only images and GIFs are allowed", http.StatusBadRequest)
+			return
+		}
+
+		// Read file content
+		attachment, err = io.ReadAll(file)
+		if err != nil {
+			ctx.Logger.WithError(err).Error("Failed to read attachment")
+			http.Error(w, "Failed to process attachment", http.StatusInternalServerError)
+			return
+		}
+	} else if err != http.ErrMissingFile {
+		ctx.Logger.WithError(err).Error("Error retrieving file")
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	// Validate input
-	if req.Content == "" && req.Attachment == nil {
+	if content == "" && len(attachment) == 0 {
 		http.Error(w, "Message content or attachment is required", http.StatusBadRequest)
 		return
 	}
@@ -163,9 +196,9 @@ func (rt *_router) sendMessage(
 		conversationID,
 		senderID,
 		messageID,
-		req.Content,
-		req.ForwardedMessage,
-		req.Attachment,
+		content,
+		forwardedMessage,
+		attachment,
 	)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to save message")

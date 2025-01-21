@@ -16,6 +16,13 @@
             </strong>
             {{ message.content }}
           </p>
+          <div v-if="message.attachment" class="attachment-container">
+          <img 
+            :src="'data:image/png;base64,' + message.attachment" 
+            alt="Attachment"
+            class="attachment-image"
+          />
+        </div>
           <small>{{ formatTimestamp(message.timestamp) }}</small>
           <div v-if="message.reactionCount > 0" class="reaction-count">
             ❤️ × {{ message.reactionCount }}
@@ -61,7 +68,17 @@
       </div>
     </div>
     <div class="chat-input">
-      <button class="attach-button">Attach Image or GIF</button>
+      <input 
+        type="file" 
+        ref="fileInput" 
+        style="display: none" 
+        accept="image/*, .gif"
+        @change="handleFileSelect"
+      >
+      <button class="attach-button" @click="triggerFileInput">Attach Image or GIF
+        <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
+      </button>
+      
       <input
         v-model="message"
         class="message-input"
@@ -70,7 +87,7 @@
         @input="toggleSendButton"
       />
       <button
-        v-if="message.trim()"
+        v-if="message.trim() || selectedFile"
         class="send-button"
         @click="sendMessage"
       >
@@ -93,9 +110,16 @@ export default {
       convName: localStorage.getItem("conversationName") || "Unknown User",
       conversationId: this.$route.params.uuid,
       messageOptions: {},
+      selectedFile: null,
     };
   },
   methods: {
+    triggerFileInput() {
+      this.$refs.fileInput.click();
+    },
+    handleFileSelect(event) {
+      this.selectedFile = event.target.files[0];
+    },
     async sendMessage() {
       try {
         const token = localStorage.getItem("token");
@@ -103,9 +127,15 @@ export default {
           this.$router.push({ path: "/" });
           return;
         }
-        const response = await axios.post(
+        const formData = new FormData();
+        formData.append('content', this.message);
+        
+        if (this.selectedFile) {
+          formData.append('attachment', this.selectedFile);
+        }
+        await axios.post(
           `/conversations/${this.conversationId}/message`,
-          { content: this.message },
+          formData,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -113,6 +143,8 @@ export default {
           }
         );
         this.message = "";
+        this.selectedFile = null;
+        this.$refs.fileInput.value = ""; 
         this.fetchMessages();
       } catch (error) {
         console.error("Failed to send message:", error);
@@ -135,7 +167,7 @@ export default {
         );
         this.messages = (response.data.messages || []).map(msg => ({
           ...msg,
-          reactingUserIDs: msg.reactingUserIDs || []
+          reactingUserIDs: msg.reactingUserIDs || [],
         }));
         this.$nextTick(() => {
           this.scrollToBottom();
@@ -291,46 +323,105 @@ export default {
   },
 };
 </script>
-
 <style scoped>
+.attachment-container {
+  margin-top: 8px;
+  max-width: 300px;
+}
+
+.attachment-image {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin-top: 4px;
+}
+
+.attachment-name {
+  display: block;
+  color: #666;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.file-input-container {
+  position: relative;
+  margin-right: 10px;
+}
+
+.file-name {
+  display: block;
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 4px;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-input {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 10px;
+  gap: 8px;
+}
+
+.attach-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 15px;
+}
+
+.message-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Updated message content styles */
 .message-content {
   position: relative;
   box-sizing: border-box;
+  padding-right: 80px;
+  min-height: 40px;
 }
 
+/* Updated button styles */
 .heart-button, .forward-button, .delete-button {
-  background-color: transparent;
-  border: none;
   position: absolute;
-  top: 1px;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 5px;
-}
-
-.heart-button {
-  right: 40px;
-  color: #666;
-}
-
-.heart-button.has-reacted {
-  color: #ff3860;
-}
-
-.forward-button {
-  right: 20px;
-}
-
-.delete-button {
-  right: 1px;
-}
-
-.message-content:hover .heart-button,
-.message-content:hover .forward-button,
-.message-content:hover .delete-button {
+  top: 5px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  opacity: 0.8;
+  transition: opacity 0.2s;
   display: block;
 }
 
+.heart-button:hover, 
+.forward-button:hover, 
+.delete-button:hover {
+  opacity: 1;
+  background-color: white;
+}
+
+.delete-button {
+  right: 5px;
+}
+
+.forward-button {
+  right: 30px;
+}
+
+.heart-button {
+  right: 55px;
+}
+
+/* Removed hover display rule */
 .reaction-count {
   margin-top: 4px;
   font-size: 0.9em;
@@ -383,8 +474,11 @@ export default {
   border-radius: 10px;
 }
 
+/* Updated text styling */
 .message p {
   margin: 0;
+  margin-right: -60px;
+  padding-right: 10px;
   color: #333;
   word-wrap: break-word;
   word-break: break-word;
@@ -415,21 +509,10 @@ export default {
   border-bottom: 1px solid #dee2e6;
 }
 
-.chat-input {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  background-color: white;
-  border-top: 1px solid #dee2e6;
-  position: sticky;
-  bottom: 0;
-}
-
 .attach-button {
   background-color: #25d366;
   color: white;
   border: none;
-  padding: 10px 15px;
   border-radius: 20px;
   cursor: pointer;
   margin-right: 10px;
@@ -441,7 +524,6 @@ export default {
 }
 
 .message-input {
-  flex: 1;
   padding: 12px;
   border: 1px solid #dee2e6;
   border-radius: 20px;
@@ -475,21 +557,11 @@ export default {
 
 .button-style {
   background-color: #128c7e;
-  color: white;
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   margin-right: 8px;
   font-size: 14px;
-}
-
-.button-style:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.button-style:hover:not(:disabled) {
-  background-color: #0f7c6a;
 }
 </style>
