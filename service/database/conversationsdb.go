@@ -259,10 +259,10 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		CASE 
 			WHEN c.type = 'direct' THEN 
 				(SELECT u.name 
-				 FROM users u 
-				 JOIN conversation_members cm2 
-				 ON u.id = cm2.userId 
-				 WHERE cm2.conversationId = c.id AND u.id != ?)
+				FROM users u 
+				JOIN conversation_members cm2 
+				ON u.id = cm2.userId 
+				WHERE cm2.conversationId = c.id AND u.id != ?)
 			ELSE c.name
 		END AS conversation_name,
 		c.type,
@@ -270,39 +270,47 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		CASE 
 			WHEN c.type = 'direct' THEN 
 				(SELECT u.photo 
-				 FROM users u 
-				 JOIN conversation_members cm2 
-				 ON u.id = cm2.userId 
-				 WHERE cm2.conversationId = c.id AND u.id != ?)
+				FROM users u 
+				JOIN conversation_members cm2 
+				ON u.id = cm2.userId 
+				WHERE cm2.conversationId = c.id AND u.id != ?)
 			ELSE c.conversationPhoto
 		END AS conversation_photo,
-		(SELECT id FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_id,
-		(SELECT content FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_content,
-		(SELECT timestamp FROM messages WHERE conversationId = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_timestamp
+		(SELECT m.id FROM messages m WHERE m.conversationId = c.id ORDER BY m.timestamp DESC LIMIT 1) AS last_message_id,
+		(SELECT m.content FROM messages m WHERE m.conversationId = c.id ORDER BY m.timestamp DESC LIMIT 1) AS last_message_content,
+		(SELECT m.timestamp FROM messages m WHERE m.conversationId = c.id ORDER BY m.timestamp DESC LIMIT 1) AS last_message_timestamp,
+		(SELECT u.name FROM messages m 
+		JOIN users u ON m.senderId = u.id 
+		WHERE m.conversationId = c.id 
+		ORDER BY m.timestamp DESC LIMIT 1) AS last_message_sender_name,
+		(SELECT m.attachment FROM messages m   -- Fetch actual attachment data
+		WHERE m.conversationId = c.id 
+		ORDER BY m.timestamp DESC LIMIT 1) AS last_message_attachment
 	FROM conversations c
 	JOIN conversation_members cm ON c.id = cm.conversationId
 	WHERE cm.userId = ?
 	ORDER BY last_message_timestamp DESC NULLS LAST;
-	`
-	// Execute the query
+    `
+
 	rows, err := db.c.Query(query, userID, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching conversations: %w", err)
 	}
 	defer rows.Close()
 
-	// Slice to hold the conversations
 	var conversations []Conversation
 
-	// Iterate over the rows
 	for rows.Next() {
 		var conv Conversation
-		var lastMessageID sql.NullString        // Handle nullable last_message_id
-		var lastMessageContent sql.NullString   // Handle nullable last_message_content
-		var lastMessageTimestamp sql.NullString // Handle nullable last_message_timestamp
+		var (
+			lastMessageID         sql.NullString
+			lastMessageContent    sql.NullString
+			lastMessageTimestamp  sql.NullString
+			lastMessageSender     sql.NullString
+			lastMessageAttachment []byte
+			convPhoto             sql.NullString
+		)
 
-		// Scan the row into the Conversation struct
-		var convPhoto sql.NullString
 		err := rows.Scan(
 			&conv.Id,
 			&conv.Name,
@@ -312,23 +320,27 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 			&lastMessageID,
 			&lastMessageContent,
 			&lastMessageTimestamp,
+			&lastMessageSender,
+			&lastMessageAttachment,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning conversation: %w", err)
 		}
 
+		// Handle conversation photo
 		if convPhoto.Valid {
 			conv.ConversationPhoto.String = base64.StdEncoding.EncodeToString([]byte(convPhoto.String))
 			conv.ConversationPhoto.Valid = true
-		} else {
-			conv.ConversationPhoto = sql.NullString{String: "", Valid: false}
 		}
 
+		// Handle last message details
 		if lastMessageID.Valid {
 			conv.LastMessage = &Message{
-				Id:        lastMessageID.String,
-				Content:   lastMessageContent.String,
-				Timestamp: lastMessageTimestamp.String,
+				Id:         lastMessageID.String,
+				Content:    lastMessageContent.String,
+				Timestamp:  lastMessageTimestamp.String,
+				SenderName: lastMessageSender.String,
+				Attachment: lastMessageAttachment,
 			}
 		}
 
@@ -339,11 +351,9 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		}
 		conv.Members = members
 
-		// Append the conversation to the slice
 		conversations = append(conversations, conv)
 	}
 
-	// Check for errors during iteration
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}

@@ -102,8 +102,11 @@ export default {
           </div>
           <div class="conversation-details">
             <h4>{{ conv.name }}</h4>
-            <p v-if="conv.lastMessage">
-              Last message: {{ truncateText(conv.lastMessage.content) }} at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
+            <p v-if="conv.lastMessage" class="last-message">
+              Last message by {{ conv.lastMessage.senderName }}: <img v-if="conv.lastMessage.attachment"
+             :src="'data:image/*;base64,' + conv.lastMessage.attachment"
+             class="attachment-thumbnail"
+             alt="Attachment"> {{ truncateText(conv.lastMessage.content) }} at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
             </p>
           </div>
         </div>
@@ -155,6 +158,21 @@ export default {
   height: 75px;
   object-fit: cover;
   border-radius: 50%;
+}
+
+.last-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.attachment-thumbnail {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 600px) {

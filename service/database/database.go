@@ -44,7 +44,7 @@ type Message struct {
 	Content          string   `json:"content"`
 	Timestamp        string   `json:"timestamp"`
 	ForwardedMessage *string  `json:"forwardedMessageId,omitempty"`
-	Attachment       []byte   `json:"attachment,omitempty;base64"`
+	Attachment       []byte   `json:"attachment"`
 	SenderPhoto      string   `json:"senderPhoto,omitempty"`
 	ReactionCount    int      `json:"reactionCount"`
 	ReactingUserIDs  []string `json:"reactingUserIds"`
