@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -22,17 +23,16 @@ func (db *appdbimpl) GetDirectConversation(senderID, recipientID string) (string
 	`, senderID, recipientID).Scan(&conversationID)
 
 	if err == sql.ErrNoRows {
-		return "", nil // No conversation exists
+		return "", nil
 	}
 	if err != nil {
 		return "", fmt.Errorf("error checking conversation: %w", err)
 	}
 
-	return conversationID, nil // Return the existing conversation ID
+	return conversationID, nil
 }
 
 func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipientID string) error {
-	// Insert a new conversation
 
 	_, err := db.c.Exec(`
 		INSERT INTO conversations (id, name, type, created_at, conversationPhoto)
@@ -42,7 +42,6 @@ func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipien
 		return fmt.Errorf("error creating new conversation: %w", err)
 	}
 
-	// Add both users to the conversation
 	_, err = db.c.Exec(`
 		INSERT INTO conversation_members (conversationId, userId)
 		VALUES (?, ?), (?, ?)
@@ -59,7 +58,6 @@ func (db *appdbimpl) SaveMessage(
 	conversationID, senderID, messageID, content string,
 	forwardedMessageID *string, attachment []byte,
 ) (Message, error) {
-	// Check if the conversation exists
 	var conversationExists bool
 	err := db.c.QueryRow(`SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?)`, conversationID).Scan(&conversationExists)
 	if err != nil {
@@ -69,7 +67,6 @@ func (db *appdbimpl) SaveMessage(
 		return Message{}, ErrConversationDoesNotExist
 	}
 
-	// Insert the message into the database
 	timestamp := time.Now().Format(time.RFC3339)
 	_, err = db.c.Exec(`
 		INSERT INTO messages (id, conversationId, senderId, content, timestamp, forwardedMessageId, attachment)
@@ -79,7 +76,6 @@ func (db *appdbimpl) SaveMessage(
 		return Message{}, fmt.Errorf("error saving message: %w", err)
 	}
 
-	// Return the saved message
 	return Message{
 		Id:               messageID,
 		ConversationId:   conversationID,
@@ -109,6 +105,9 @@ func (db *appdbimpl) GetConversationMembers(conversationID string) ([]string, er
 			return nil, err
 		}
 		members = append(members, userID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating members: %w", err)
 	}
 	return members, nil
 }
@@ -143,27 +142,24 @@ func (db *appdbimpl) IsUserInConversation(conversationID, userID string) (bool, 
 func (db *appdbimpl) GetConversationDetails(conversationID string) (Conversation, error) {
 	var conversation Conversation
 
-	// Fetch basic conversation details
 	err := db.c.QueryRow(`
 		SELECT id, name, type, created_at
 		FROM conversations
 		WHERE id = ?
 	`, conversationID).Scan(&conversation.Id, &conversation.Name, &conversation.Type, &conversation.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return Conversation{}, ErrConversationDoesNotExist
 	}
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation details: %w", err)
 	}
 
-	// Fetch members of the conversation
 	members, err := db.GetConversationMembers(conversationID)
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation members: %w", err)
 	}
 	conversation.Members = members
 
-	// Fetch messages in the conversation
 	messages, err := db.GetMessagesForConversation(conversationID)
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation messages: %w", err)
@@ -230,17 +226,14 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 			return nil, err
 		}
 
-		// Handle photo encoding
 		if senderPhoto != nil {
 			message.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
 		}
 
-		// Handle forwarded message
 		if forwardedMessage.Valid {
 			message.ForwardedMessage = &forwardedMessage.String
 		}
 
-		// Process reacting users
 		if reactingUsers.Valid {
 			message.ReactingUserIDs = strings.Split(reactingUsers.String, ",")
 		} else {
@@ -249,6 +242,11 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 
 		messages = append(messages, message)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating message rows: %w", err)
+	}
+
 	return messages, nil
 }
 
@@ -327,13 +325,11 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 			return nil, fmt.Errorf("error scanning conversation: %w", err)
 		}
 
-		// Handle conversation photo
 		if convPhoto.Valid {
 			conv.ConversationPhoto.String = base64.StdEncoding.EncodeToString([]byte(convPhoto.String))
 			conv.ConversationPhoto.Valid = true
 		}
 
-		// Handle last message details
 		if lastMessageID.Valid {
 			conv.LastMessage = &Message{
 				Id:         lastMessageID.String,
@@ -344,7 +340,6 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 			}
 		}
 
-		// Fetch conversation members
 		members, err := db.GetConversationMembers(conv.Id)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching conversation members: %w", err)
@@ -368,7 +363,7 @@ func (db *appdbimpl) DeleteMessage(conversationID, messageID, userID string) err
 		FROM messages
 		WHERE conversationId = ? AND id = ?
 	`, conversationID, messageID).Scan(&senderID)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrMessageDoesNotExist
 	}
 	if err != nil {

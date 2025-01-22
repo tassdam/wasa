@@ -64,7 +64,6 @@ func (db *appdbimpl) GetMyGroups(userID string) ([]Conversation, error) {
 			return nil, fmt.Errorf("error scanning group: %w", err)
 		}
 
-		// Handle photo encoding same as conversations
 		if photo.Valid {
 			group.ConversationPhoto.String = base64.StdEncoding.EncodeToString([]byte(photo.String))
 			group.ConversationPhoto.Valid = true
@@ -110,7 +109,6 @@ func (db *appdbimpl) GetGroupInfo(groupID string) (Conversation, error) {
 		return Conversation{}, fmt.Errorf("error fetching group by ID: %w", err)
 	}
 
-	// Convert BLOB photo to base64 string
 	if len(photo) > 0 {
 		group.ConversationPhoto = sql.NullString{
 			String: base64.StdEncoding.EncodeToString(photo),
@@ -120,7 +118,6 @@ func (db *appdbimpl) GetGroupInfo(groupID string) (Conversation, error) {
 		group.ConversationPhoto = sql.NullString{Valid: false}
 	}
 
-	// Convert CSV members to slice
 	if membersCSV.Valid {
 		group.Members = strings.Split(membersCSV.String, ",")
 	} else {
@@ -154,7 +151,6 @@ func (db *appdbimpl) UpdateGroupPhoto(groupID string, photo []byte) error {
 		return ErrGroupDoesNotExist
 	}
 
-	// 2. Update the user's photo column (must exist in your database schema)
 	_, err = db.c.Exec(`UPDATE conversations SET conversationPhoto=? WHERE id=?`, photo, groupID)
 	if err != nil {
 		return err

@@ -39,7 +39,7 @@ func (rt *_router) setMyUserName(
 		return
 	}
 	updatedUser, dbErr := rt.db.UpdateUserName(userID, req.Name)
-	if dbErr == database.ErrUserDoesNotExist {
+	if errors.Is(dbErr, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if dbErr != nil {
@@ -85,7 +85,7 @@ func (rt *_router) setMyPhoto(
 		http.Error(w, "Failed to read photo file", http.StatusInternalServerError)
 		return
 	}
-	if len(photoData) > 10*1024*1024 { // 10 MB
+	if len(photoData) > 10*1024*1024 {
 		http.Error(w, "Photo too large. Maximum allowed size is 10 MB.", http.StatusRequestEntityTooLarge)
 		return
 	}
@@ -96,7 +96,7 @@ func (rt *_router) setMyPhoto(
 	}
 
 	err = rt.db.UpdateUserPhoto(userID, photoData)
-	if err == database.ErrUserDoesNotExist {
+	if errors.Is(err, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -132,14 +132,12 @@ func (rt *_router) searchUsers(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// 1. Get the search query from the URL
 	query := r.URL.Query().Get("username")
 	if query == "" {
 		http.Error(w, "Missing 'username' query parameter", http.StatusBadRequest)
 		return
 	}
 
-	// 2. Query the database for matching users
 	users, err := rt.db.SearchUsersByName(query)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to search users")
@@ -150,14 +148,19 @@ func (rt *_router) searchUsers(
 	if len(users) == 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]User{}) // Return an empty array instead of null
+		if err := json.NewEncoder(w).Encode([]User{}); err != nil {
+			ctx.Logger.WithError(err).Error("Failed to encode empty users array")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 		return
 	}
 
-	// 3. Return the results as JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(users)
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		ctx.Logger.WithError(err).Error("Failed to encode users response")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 func (rt *_router) getMyPhoto(
@@ -166,16 +169,14 @@ func (rt *_router) getMyPhoto(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// 1. Get the authenticated user ID from the Authorization header
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// 2. Query the database to get the user's photo
 	user, dbErr := rt.db.GetUsersPhoto(userID)
-	if dbErr == database.ErrUserDoesNotExist {
+	if errors.Is(dbErr, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if dbErr != nil {
@@ -184,18 +185,15 @@ func (rt *_router) getMyPhoto(
 		return
 	}
 
-	// 3. Construct the response
 	response := map[string]interface{}{
 		"name":  user.Name,
 		"photo": nil,
 	}
 
-	// Encode the photo as base64 if it exists
 	if user.Photo != nil {
 		response["photo"] = base64.StdEncoding.EncodeToString(user.Photo)
 	}
 
-	// 4. Respond with the user's photo and name
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode user response")

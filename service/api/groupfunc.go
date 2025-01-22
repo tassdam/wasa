@@ -17,7 +17,6 @@ func (rt *_router) createGroup(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// Parse multipart form data with a memory limit of 10MB
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
@@ -27,7 +26,6 @@ func (rt *_router) createGroup(
 	name := r.FormValue("name")
 	membersStr := r.FormValue("members")
 
-	// Unmarshal "members" JSON string into a slice of strings
 	var members []string
 	err = json.Unmarshal([]byte(membersStr), &members)
 	if err != nil {
@@ -63,7 +61,6 @@ func (rt *_router) createGroup(
 		return
 	}
 
-	// Send the response with the conversation ID
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"conversationId": conversationID,
@@ -91,7 +88,6 @@ func (rt *_router) getMyGroups(
 		return
 	}
 
-	// Return the conversations as JSON
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(conversations); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode conversations")
@@ -106,7 +102,6 @@ func (rt *_router) getGroup(
 ) {
 	groupID := ps.ByName("groupId")
 
-	// Authentication
 	_, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -172,7 +167,7 @@ func (rt *_router) setGroupName(
 
 	dbErr := rt.db.UpdateGroupName(groupID, req.Name)
 
-	if dbErr == database.ErrUserDoesNotExist {
+	if errors.Is(dbErr, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if dbErr != nil {
@@ -216,7 +211,7 @@ func (rt *_router) setGroupPhoto(
 		http.Error(w, "Failed to read photo file", http.StatusInternalServerError)
 		return
 	}
-	if len(photoData) > 10*1024*1024 { // 10 MB
+	if len(photoData) > 10*1024*1024 {
 		http.Error(w, "Photo too large. Maximum allowed size is 10 MB.", http.StatusRequestEntityTooLarge)
 		return
 	}
@@ -228,7 +223,7 @@ func (rt *_router) setGroupPhoto(
 
 	err = rt.db.UpdateGroupPhoto(groupID, photoData)
 
-	if err == database.ErrUserDoesNotExist {
+	if errors.Is(err, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -270,20 +265,15 @@ func (rt *_router) leaveGroup(
 	w.WriteHeader(http.StatusOK)
 }
 
-// Add this to your router initialization
-// rt.router.POST("/groups/:groupId/addToGroup", rt.wrap(rt.addToGroup))
-
 func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	groupID := ps.ByName("groupId")
 
-	// Get authenticated user
 	_, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Parse request body
 	var request struct {
 		UserID string `json:"userId"`
 	}
@@ -292,7 +282,6 @@ func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprou
 		return
 	}
 
-	// Add user to group
 	err = rt.db.AddUserToGroup(groupID, request.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to add user to group")

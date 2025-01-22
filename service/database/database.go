@@ -28,8 +28,8 @@ type Group struct {
 type Conversation struct {
 	Id                string         `json:"id"`
 	Name              string         `json:"name"`
-	Type              string         `json:"type"`      // 'direct' or 'group'
-	CreatedAt         string         `json:"createdAt"` // Timestamp of conversation creation
+	Type              string         `json:"type"`
+	CreatedAt         string         `json:"createdAt"`
 	Members           []string       `json:"members"`
 	LastMessage       *Message       `json:"lastMessage,omitempty"`
 	Messages          []Message      `json:"messages,omitempty"`
@@ -59,7 +59,7 @@ type ReadReceipt struct {
 	MessageId   string  `json:"messageId"`
 	UserId      string  `json:"userId"`
 	DeliveredAt string  `json:"deliveredAt"`
-	ReadAt      *string `json:"readAt,omitempty"` // Nullable for messages not yet read
+	ReadAt      *string `json:"readAt,omitempty"`
 }
 
 // AppDatabase is the high-level interface for the DB operations.
@@ -106,18 +106,14 @@ func New(db *sql.DB) (AppDatabase, error) {
 		return nil, errors.New("database is required when building an AppDatabase")
 	}
 
-	// Enable foreign key support
 	_, err := db.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if the primary table (users) exists to determine if schema creation is needed
 	var tableName string
 	err = db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='users';`).Scan(&tableName)
 	if errors.Is(err, sql.ErrNoRows) {
-		// Tables do not exist, create all necessary tables
-		// Adjust these schemas based on your actual data requirements
 
 		usersTable := `CREATE TABLE users (
 			id TEXT NOT NULL PRIMARY KEY,
@@ -177,7 +173,7 @@ func New(db *sql.DB) (AppDatabase, error) {
 			conversationMembersTable,
 			messagesTable,
 			commentsTable,
-			readReceiptsTable, // Add the read_receipts table
+			readReceiptsTable,
 		}
 		for _, q := range creationQueries {
 			_, execErr := db.Exec(q)
@@ -186,7 +182,6 @@ func New(db *sql.DB) (AppDatabase, error) {
 			}
 		}
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		// Some other error occurred when checking for tables
 		return nil, err
 	}
 

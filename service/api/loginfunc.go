@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -25,9 +26,7 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		http.Error(w, "Invalid username length", http.StatusBadRequest)
 		return
 	}
-
-	photoStr := string(req.Photo)
-	photoBytes, err := base64.StdEncoding.DecodeString(photoStr)
+	photoBytes, err := base64.StdEncoding.DecodeString(req.Photo)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Invalid base64 photo data")
 		http.Error(w, "Invalid photo data", http.StatusBadRequest)
@@ -35,7 +34,7 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	}
 
 	user, err := rt.db.GetUserByName(req.Name)
-	if err == database.ErrUserDoesNotExist {
+	if errors.Is(err, database.ErrUserDoesNotExist) {
 		newID, genErr := generateNewID()
 		if genErr != nil {
 			ctx.Logger.WithError(genErr).Error("Failed to generate user ID")
@@ -65,5 +64,8 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		ctx.Logger.WithError(err).Error("failed to encode response")
+		return
+	}
 }

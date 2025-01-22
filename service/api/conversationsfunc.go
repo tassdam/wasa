@@ -28,7 +28,6 @@ func (rt *_router) startConversation(
 		return
 	}
 
-	// Validate input
 	if req.SenderID == "" || req.RecipientID == "" {
 		http.Error(w, "Missing senderId or recipientId", http.StatusBadRequest)
 		return
@@ -57,7 +56,6 @@ func (rt *_router) startConversation(
 		}
 	}
 
-	// Respond with the conversation ID
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"conversationId": conversationID,
@@ -127,8 +125,7 @@ func (rt *_router) sendMessage(
 		return
 	}
 
-	// Parse multipart form data
-	err := r.ParseMultipartForm(32 << 20) // 32MB max memory
+	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
 		return
@@ -140,13 +137,11 @@ func (rt *_router) sendMessage(
 		forwardedMessage = &forwardedMessageID
 	}
 
-	// Handle file upload
 	var attachment []byte
 	file, header, err := r.FormFile("attachment")
 	if err == nil {
 		defer file.Close()
 
-		// Validate file type
 		allowedTypes := map[string]bool{
 			"image/jpeg": true,
 			"image/png":  true,
@@ -157,33 +152,29 @@ func (rt *_router) sendMessage(
 			return
 		}
 
-		// Read file content
 		attachment, err = io.ReadAll(file)
 		if err != nil {
 			ctx.Logger.WithError(err).Error("Failed to read attachment")
 			http.Error(w, "Failed to process attachment", http.StatusInternalServerError)
 			return
 		}
-	} else if err != http.ErrMissingFile {
+	} else if !errors.Is(err, http.ErrMissingFile) {
 		ctx.Logger.WithError(err).Error("Error retrieving file")
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	// Validate input
 	if content == "" && len(attachment) == 0 {
 		http.Error(w, "Message content or attachment is required", http.StatusBadRequest)
 		return
 	}
 
-	// Get the sender's ID from the Authorization header
 	senderID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Generate a new message ID
 	messageID, err := generateNewID()
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to generate message ID")
@@ -191,7 +182,6 @@ func (rt *_router) sendMessage(
 		return
 	}
 
-	// Save the message to the database
 	message, err := rt.db.SaveMessage(
 		conversationID,
 		senderID,
@@ -210,7 +200,6 @@ func (rt *_router) sendMessage(
 		return
 	}
 
-	// Insert delivery receipts for all conversation members
 	members, err := rt.db.GetConversationMembers(conversationID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation members")
@@ -218,14 +207,13 @@ func (rt *_router) sendMessage(
 		return
 	}
 	for _, memberID := range members {
-		if memberID != senderID { // Exclude the sender from receipts
+		if memberID != senderID {
 			if err := rt.db.InsertDeliveryReceipt(messageID, memberID, message.Timestamp); err != nil {
 				ctx.Logger.WithError(err).Error("Failed to insert delivery receipt")
 			}
 		}
 	}
 
-	// Respond with the saved message
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(message); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode response")
@@ -238,14 +226,12 @@ func (rt *_router) getMyConversations(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-	// Extract user ID from the Authorization header
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Fetch the conversations for the user from the database
 	conversations, err := rt.db.GetMyConversations(userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch user's conversations")
@@ -253,7 +239,6 @@ func (rt *_router) getMyConversations(
 		return
 	}
 
-	// Return the conversations as JSON
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(conversations); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode conversations")
