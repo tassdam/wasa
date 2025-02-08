@@ -111,6 +111,7 @@ export default {
       conversationId: this.$route.params.uuid,
       messageOptions: {},
       selectedFile: null,
+      pollIntervalId: null  
     };
   },
   methods: {
@@ -317,9 +318,13 @@ export default {
   mounted() {
     this.fetchMessages();
     document.addEventListener('click', this.handleOutsideClick);
+    this.pollIntervalId = setInterval(() => {
+      this.fetchMessages();
+    }, 100);
   },
   beforeUnmount() {
     document.removeEventListener('click', this.handleOutsideClick);
+    clearInterval(this.pollIntervalId);
   },
 };
 </script>

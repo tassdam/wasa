@@ -6,7 +6,8 @@ export default {
       username: "", 
       errormsg: null,
       loading: false,
-      conversations: [] 
+      conversations: [],
+      pollIntervalId: null
     };
   },
   methods: {
@@ -61,6 +62,13 @@ export default {
   mounted() {
     this.username = localStorage.getItem("name") || "Guest";
     this.loadConversations();
+    this.pollIntervalId = setInterval(() => {
+      this.loadConversations();
+    }, 100);
+  },
+  unmounted() {
+    // Clear the interval when the component is destroyed
+    clearInterval(this.pollIntervalId);
   }
 };
 </script>
@@ -81,8 +89,7 @@ export default {
     </div>
     <ErrorMsg v-if="errormsg" :msg="errormsg" />
     <div>
-      <p v-if="loading">Loading...</p>
-      <div v-else-if="conversations.length === 0">
+      <div v-if="conversations.length === 0">
         <p>No conversations found.</p>
       </div>
       <div v-else class="conversations-container">
