@@ -64,10 +64,9 @@ export default {
     this.loadConversations();
     this.pollIntervalId = setInterval(() => {
       this.loadConversations();
-    }, 100);
+    }, 1000);
   },
   unmounted() {
-    // Clear the interval when the component is destroyed
     clearInterval(this.pollIntervalId);
   }
 };
