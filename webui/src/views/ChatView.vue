@@ -5,7 +5,12 @@
     </div>
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
-      <div v-for="message in messages" :key="message.id" class="message" :class="message.senderId === userToken ? 'self' : 'other'">
+      <div
+        v-for="message in messages"
+        :key="message.id"
+        class="message"
+        :class="message.senderId === userToken ? 'self' : 'other'"
+      >
         <div class="message-content" @click.stop>
           <p>
             <strong v-if="message.forwardedMessageId">
@@ -17,12 +22,12 @@
             {{ message.content }}
           </p>
           <div v-if="message.attachment" class="attachment-container">
-          <img 
-            :src="'data:image/png;base64,' + message.attachment" 
-            alt="Attachment"
-            class="attachment-image"
-          />
-        </div>
+            <img 
+              :src="'data:image/png;base64,' + message.attachment" 
+              alt="Attachment"
+              class="attachment-image"
+            />
+          </div>
           <small>{{ formatTimestamp(message.timestamp) }}</small>
           <div v-if="message.reactionCount > 0" class="reaction-count">
             ❤️ × {{ message.reactionCount }}
@@ -36,7 +41,13 @@
             ❤️
           </button>
           <button class="forward-button" @click.stop="showForwardOptions(message.id)">→</button>
-          <button v-if="message.senderId === userToken" class="delete-button" @click.stop="deleteMessage(message)">✖</button>
+          <button
+            v-if="message.senderId === userToken"
+            class="delete-button"
+            @click.stop="deleteMessage(message)"
+          >
+            ✖
+          </button>
           <div v-if="messageOptions[message.id]?.showForwardMenu" class="forward-options" @click.stop>
             <label for="forward-select">Forward to:</label>
             <select
@@ -75,10 +86,10 @@
         accept="image/*, .gif"
         @change="handleFileSelect"
       >
-      <button class="attach-button" @click="triggerFileInput">Attach Image or GIF
+      <button class="attach-button" @click="triggerFileInput">
+        Attach Image or GIF
         <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
       </button>
-      
       <input
         v-model="message"
         class="message-input"
@@ -111,7 +122,8 @@ export default {
       conversationId: this.$route.params.uuid,
       messageOptions: {},
       selectedFile: null,
-      pollIntervalId: null  
+      pollIntervalId: null,
+      firstLoad: true  
     };
   },
   methods: {
@@ -129,24 +141,28 @@ export default {
           return;
         }
         const formData = new FormData();
-        formData.append('content', this.message);
-        
+        formData.append("content", this.message);
         if (this.selectedFile) {
-          formData.append('attachment', this.selectedFile);
+          formData.append("attachment", this.selectedFile);
         }
         await axios.post(
           `/conversations/${this.conversationId}/message`,
           formData,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
-            },
+              Authorization: `Bearer ${token}`
+            }
           }
         );
+        
         this.message = "";
         this.selectedFile = null;
-        this.$refs.fileInput.value = ""; 
-        this.fetchMessages();
+        this.$refs.fileInput.value = "";
+        
+        await this.fetchMessages(); 
+        this.$nextTick(() => {
+          this.forceScrollToBottom();
+        });
       } catch (error) {
         console.error("Failed to send message:", error);
       }
@@ -162,50 +178,57 @@ export default {
           `/conversations/${this.conversationId}`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
-            },
+              Authorization: `Bearer ${token}`
+            }
           }
         );
         this.messages = (response.data.messages || []).map(msg => ({
           ...msg,
-          reactingUserIDs: msg.reactingUserIDs || [],
+          reactingUserIDs: msg.reactingUserIDs || []
         }));
+        
         this.$nextTick(() => {
-          this.scrollToBottom();
+          if (this.firstLoad) {
+            this.forceScrollToBottom();
+            this.firstLoad = false;
+          }
         });
       } catch (error) {
         console.error("Failed to fetch messages:", error);
         alert("Failed to load messages. Please try again later.");
       }
     },
+    forceScrollToBottom() {
+      const chat = this.$refs.chatMessages;
+      if (chat) {
+        chat.scrollTop = chat.scrollHeight;
+      }
+    },
     async toggleReaction(message) {
       try {
-
         const token = localStorage.getItem("token");
-
         if (!token || message.senderId === this.userToken) return;
-
-        const hasReacted = (message.reactingUserIds || []).includes(token);
-        
+        const hasReacted = (message.reactingUserIDs || []).includes(token);
         if (hasReacted) {
           await axios.delete(
             `/conversations/${this.conversationId}/message/${message.id}/comment`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          const userIndex = message.reactingUserIds.indexOf(this.userToken);
+          const userIndex = message.reactingUserIDs.indexOf(this.userToken);
           if (userIndex > -1) {
-            message.reactingUserIds.splice(userIndex, 1);
+            message.reactingUserIDs.splice(userIndex, 1);
             message.reactionCount = Math.max(0, message.reactionCount - 1);
           }
         } else {
           await axios.post(
-            `/conversations/${this.conversationId}/message/${message.id}/comment`,{},
+            `/conversations/${this.conversationId}/message/${message.id}/comment`,
+            {},
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          if (!message.reactingUserIds) {
-            message.reactingUserIds = [];
+          if (!message.reactingUserIDs) {
+            message.reactingUserIDs = [];
           }
-          message.reactingUserIds.push(this.userToken);
+          message.reactingUserIDs.push(this.userToken);
           message.reactionCount = (message.reactionCount || 0) + 1;
         }
       } catch (error) {
@@ -224,14 +247,11 @@ export default {
           `/conversations/${this.conversationId}/message/${message.id}`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
-            },
+              Authorization: `Bearer ${token}`
+            }
           }
         );
         this.messages = this.messages.filter(m => m.id !== message.id);
-        this.$nextTick(() => {
-          this.scrollToBottom();
-        });
       } catch (error) {
         console.error("Failed to delete message:", error);
         alert("Failed to delete message. Please try again later.");
@@ -241,19 +261,13 @@ export default {
       const date = new Date(timestamp);
       return date.toLocaleString();
     },
-    scrollToBottom() {
-      const chatMessages = this.$refs.chatMessages;
-      if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
-    },
     showForwardOptions(messageId) {
       this.closeAllMenus();
       if (!this.messageOptions[messageId]) {
         this.messageOptions[messageId] = {
           showForwardMenu: true,
           forwardConversations: [],
-          selectedConversationId: null,
+          selectedConversationId: null
         };
         this.fetchForwardConversations(messageId);
       } else {
@@ -272,10 +286,7 @@ export default {
     },
     handleOutsideClick(event) {
       const messageContent = this.$el.querySelector('.message-content');
-      if (
-        messageContent &&
-        !messageContent.contains(event.target)
-      ) {
+      if (messageContent && !messageContent.contains(event.target)) {
         this.closeAllMenus();
       }
     },
@@ -283,7 +294,7 @@ export default {
       try {
         const token = localStorage.getItem("token");
         const response = await axios.get('/conversations', {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` }
         });
         const conversations = response.data.filter(conv => conv.id !== this.conversationId);
         this.messageOptions[messageId].forwardConversations = conversations;
@@ -304,7 +315,7 @@ export default {
             targetConversationId: targetConversationId 
           },
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${token}` }
           }
         );
         alert("Message forwarded successfully!");
@@ -313,34 +324,34 @@ export default {
         console.error("Failed to forward message:", error);
         alert("Failed to forward message. Please try again.");
       }
-    },
+    }
   },
   mounted() {
     this.fetchMessages();
-    document.addEventListener('click', this.handleOutsideClick);
     this.pollIntervalId = setInterval(() => {
       this.fetchMessages();
     }, 100);
+    document.addEventListener("click", this.handleOutsideClick);
   },
   beforeUnmount() {
-    document.removeEventListener('click', this.handleOutsideClick);
+    document.removeEventListener("click", this.handleOutsideClick);
     clearInterval(this.pollIntervalId);
-  },
+  }
 };
 </script>
+
 <style scoped>
+/* Your existing styles remain unchanged */
 .attachment-container {
   margin-top: 8px;
   max-width: 300px;
 }
-
 .attachment-image {
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid #ddd;
   margin-top: 4px;
 }
-
 .attachment-name {
   display: block;
   color: #666;
@@ -348,12 +359,10 @@ export default {
   margin-top: 4px;
   word-break: break-all;
 }
-
 .file-input-container {
   position: relative;
   margin-right: 10px;
 }
-
 .file-name {
   display: block;
   font-size: 0.75rem;
@@ -364,7 +373,6 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .chat-input {
   display: flex;
   align-items: flex-start;
@@ -372,28 +380,22 @@ export default {
   padding: 10px;
   gap: 8px;
 }
-
 .attach-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 10px 15px;
 }
-
 .message-input {
   flex: 1;
   min-width: 200px;
 }
-
-/* Updated message content styles */
 .message-content {
   position: relative;
   box-sizing: border-box;
   padding-right: 80px;
   min-height: 40px;
 }
-
-/* Updated button styles */
 .heart-button, .forward-button, .delete-button {
   position: absolute;
   top: 5px;
@@ -406,27 +408,21 @@ export default {
   transition: opacity 0.2s;
   display: block;
 }
-
 .heart-button:hover, 
 .forward-button:hover, 
 .delete-button:hover {
   opacity: 1;
   background-color: white;
 }
-
 .delete-button {
   right: 5px;
 }
-
 .forward-button {
   right: 30px;
 }
-
 .heart-button {
   right: 55px;
 }
-
-/* Removed hover display rule */
 .reaction-count {
   margin-top: 4px;
   font-size: 0.9em;
@@ -435,7 +431,6 @@ export default {
   align-items: center;
   gap: 4px;
 }
-
 .forward-options {
   position: absolute;
   top: 30px;
@@ -446,7 +441,6 @@ export default {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   z-index: 100;
 }
-
 .chat-messages {
   display: flex;
   flex-direction: column;
@@ -456,7 +450,6 @@ export default {
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
 }
-
 .message {
   max-width: 70%;
   margin-bottom: 10px;
@@ -465,21 +458,17 @@ export default {
   box-sizing: border-box;
   position: relative;
 }
-
 .message.self {
   margin-left: auto;
   background-color: #d1e7dd;
   padding: 10px;
   border-radius: 10px;
 }
-
 .message.other {
   background-color: #e0f2f1;
   padding: 10px;
   border-radius: 10px;
 }
-
-/* Updated text styling */
 .message p {
   margin: 0;
   margin-right: -60px;
@@ -489,31 +478,26 @@ export default {
   word-break: break-word;
   white-space: pre-wrap;
 }
-
 .message small {
   margin-top: 5px;
   color: #666;
   display: block;
   font-size: 0.8em;
 }
-
 .message.self small {
   text-align: right;
 }
-
 .chat-container {
   display: flex;
   flex-direction: column;
   height: 92vh;
   overflow: hidden;
 }
-
 .chat-header {
   padding: 15px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
 }
-
 .attach-button {
   background-color: #25d366;
   color: white;
@@ -523,11 +507,9 @@ export default {
   margin-right: 10px;
   font-size: 14px;
 }
-
 .attach-button:hover {
   background-color: #20b358;
 }
-
 .message-input {
   padding: 12px;
   border: 1px solid #dee2e6;
@@ -535,7 +517,6 @@ export default {
   font-size: 14px;
   outline: none;
 }
-
 .send-button {
   background-color: #128c7e;
   color: white;
@@ -546,11 +527,9 @@ export default {
   cursor: pointer;
   font-size: 14px;
 }
-
 .send-button:hover {
   background-color: #0f7c6a;
 }
-
 .forward-select {
   width: 200px;
   padding: 8px;
@@ -559,7 +538,6 @@ export default {
   margin-bottom: 8px;
   font-size: 14px;
 }
-
 .button-style {
   background-color: #128c7e;
   border: none;
