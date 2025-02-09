@@ -26,9 +26,8 @@ type User struct {
 }
 
 type Message struct {
-	ID                 string    `json:"id"`
-	SenderID           string    `json:"senderId"`
-	Content            string    `json:"content"`
-	Timestamp          time.Time `json:"timestamp"`
-	ForwardedMessageID *string   `json:"forwardedMessageId,omitempty"`
+	ID        string    `json:"id"`
+	SenderID  string    `json:"senderId"`
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
 }

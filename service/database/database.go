@@ -37,17 +37,16 @@ type Conversation struct {
 }
 
 type Message struct {
-	Id               string   `json:"id"`
-	ConversationId   string   `json:"conversationId"`
-	SenderId         string   `json:"senderId"`
-	SenderName       string   `json:"senderName"`
-	Content          string   `json:"content"`
-	Timestamp        string   `json:"timestamp"`
-	ForwardedMessage *string  `json:"forwardedMessageId,omitempty"`
-	Attachment       []byte   `json:"attachment"`
-	SenderPhoto      string   `json:"senderPhoto,omitempty"`
-	ReactionCount    int      `json:"reactionCount"`
-	ReactingUserIDs  []string `json:"reactingUserIds"`
+	Id              string   `json:"id"`
+	ConversationId  string   `json:"conversationId"`
+	SenderId        string   `json:"senderId"`
+	SenderName      string   `json:"senderName"`
+	Content         string   `json:"content"`
+	Timestamp       string   `json:"timestamp"`
+	Attachment      []byte   `json:"attachment"`
+	SenderPhoto     string   `json:"senderPhoto,omitempty"`
+	ReactionCount   int      `json:"reactionCount"`
+	ReactingUserIDs []string `json:"reactingUserIds"`
 }
 
 type Comment struct {
@@ -74,7 +73,7 @@ type AppDatabase interface {
 	SearchUsersByName(username string) ([]User, error)
 	GetDirectConversation(senderID, recipientID string) (string, error)
 	CreateDirectConversation(conversationID, senderID, recipientID string) error
-	SaveMessage(conversationID, senderID, messageID, content string, forwardedMessageID *string, attachment []byte) (Message, error)
+	SaveMessage(conversationID, senderID, messageID, content string, attachment []byte) (Message, error)
 	InsertDeliveryReceipt(messageID, userID, deliveredAt string) error
 	IsUserInConversation(conversationID, userID string) (bool, error)
 	GetConversationDetails(conversationID string) (Conversation, error)
@@ -143,7 +142,6 @@ func New(db *sql.DB) (AppDatabase, error) {
 			senderId TEXT NOT NULL,
 			content TEXT NOT NULL,
 			timestamp TEXT NOT NULL,
-			forwardedMessageId TEXT,
 			attachment BLOB,
 			FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE

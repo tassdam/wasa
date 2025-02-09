@@ -55,8 +55,7 @@ func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipien
 }
 
 func (db *appdbimpl) SaveMessage(
-	conversationID, senderID, messageID, content string,
-	forwardedMessageID *string, attachment []byte,
+	conversationID, senderID, messageID, content string, attachment []byte,
 ) (Message, error) {
 	var conversationExists bool
 	err := db.c.QueryRow(`SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?)`, conversationID).Scan(&conversationExists)
@@ -69,21 +68,20 @@ func (db *appdbimpl) SaveMessage(
 
 	timestamp := time.Now().Format(time.RFC3339)
 	_, err = db.c.Exec(`
-		INSERT INTO messages (id, conversationId, senderId, content, timestamp, forwardedMessageId, attachment)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, messageID, conversationID, senderID, content, timestamp, forwardedMessageID, attachment)
+		INSERT INTO messages (id, conversationId, senderId, content, timestamp, attachment)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, messageID, conversationID, senderID, content, timestamp, attachment)
 	if err != nil {
 		return Message{}, fmt.Errorf("error saving message: %w", err)
 	}
 
 	return Message{
-		Id:               messageID,
-		ConversationId:   conversationID,
-		SenderId:         senderID,
-		Content:          content,
-		Timestamp:        timestamp,
-		ForwardedMessage: forwardedMessageID,
-		Attachment:       attachment,
+		Id:             messageID,
+		ConversationId: conversationID,
+		SenderId:       senderID,
+		Content:        content,
+		Timestamp:      timestamp,
+		Attachment:     attachment,
 	}, nil
 }
 
@@ -177,7 +175,6 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
             m.senderId, 
             m.content, 
             m.timestamp, 
-            m.forwardedMessageId, 
             m.attachment,
             u.name AS senderName,
             u.photo AS senderPhoto,
@@ -205,7 +202,6 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 	var messages []Message
 	for rows.Next() {
 		var message Message
-		var forwardedMessage sql.NullString
 		var senderPhoto []byte
 		var reactingUsers sql.NullString
 
@@ -215,7 +211,6 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 			&message.SenderId,
 			&message.Content,
 			&message.Timestamp,
-			&forwardedMessage,
 			&message.Attachment,
 			&message.SenderName,
 			&senderPhoto,
@@ -228,10 +223,6 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 
 		if senderPhoto != nil {
 			message.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
-		}
-
-		if forwardedMessage.Valid {
-			message.ForwardedMessage = &forwardedMessage.String
 		}
 
 		if reactingUsers.Valid {
@@ -393,7 +384,7 @@ func (db *appdbimpl) GetMessage(messageID, userID string) (Message, error) {
             m.senderId, 
             m.content, 
             m.timestamp, 
-            m.forwardedMessageId, 
+            m.attachment,
             u.name AS senderName
         FROM 
             messages m
@@ -409,7 +400,7 @@ func (db *appdbimpl) GetMessage(messageID, userID string) (Message, error) {
 		&message.SenderId,
 		&message.Content,
 		&message.Timestamp,
-		&message.ForwardedMessage,
+		&message.Attachment,
 		&message.SenderName,
 	)
 	if err == sql.ErrNoRows {

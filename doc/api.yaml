@@ -309,7 +309,7 @@ paths:
             minLength: 1
             maxLength: 50
       requestBody:
-        description: Form data containing message content, an optional forwardedMessageId, and an optional attachment.
+        description: Form data containing message content and an optional attachment.
         required: true
         content:
           multipart/form-data:
@@ -324,13 +324,6 @@ paths:
                   pattern: '^.*$'
                   minLength: 1
                   maxLength: 1000
-                forwardedMessageId:
-                  type: string
-                  description: ID of the message being forwarded (if any).
-                  example: "msg789"
-                  pattern: '^[a-zA-Z0-9_]*$'
-                  minLength: 0
-                  maxLength: 50
                 attachment:
                   type: string
                   description: Optional image attachment (JPEG, PNG, or GIF), base64 encoded.
@@ -351,7 +344,6 @@ paths:
                 senderName: "Maria"
                 content: "Hello, world!"
                 timestamp: "2023-10-20T10:05:00Z"
-                forwardedMessageId: ""
                 attachment: ""
                 reactionCount: 0
                 reactingUserIds: []
@@ -406,7 +398,6 @@ paths:
                 senderName: "Maria"
                 content: "Hello, world!"
                 timestamp: "2023-10-20T10:05:00Z"
-                forwardedMessageId: "msg123"
                 attachment: ""
                 reactionCount: 0
                 reactingUserIds: []
@@ -1064,13 +1055,6 @@ components:
           example: "2023-10-20T10:05:00Z"
           minLength: 20
           maxLength: 29
-        forwardedMessageId:
-          type: string
-          description: ID of the original message if this is a forwarded message.
-          example: ""
-          pattern: '^[a-zA-Z0-9_]*$'
-          minLength: 0
-          maxLength: 50
         attachment:
           type: string
           description: Base64-encoded attachment (if any).

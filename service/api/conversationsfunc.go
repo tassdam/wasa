@@ -131,11 +131,6 @@ func (rt *_router) sendMessage(
 		return
 	}
 	content := r.FormValue("content")
-	forwardedMessageID := r.FormValue("forwardedMessageId")
-	var forwardedMessage *string
-	if forwardedMessageID != "" {
-		forwardedMessage = &forwardedMessageID
-	}
 
 	var attachment []byte
 	file, header, err := r.FormFile("attachment")
@@ -187,7 +182,6 @@ func (rt *_router) sendMessage(
 		senderID,
 		messageID,
 		content,
-		forwardedMessage,
 		attachment,
 	)
 	if err != nil {
@@ -295,17 +289,18 @@ func (rt *_router) forwardMessage(
 	messageID := ps.ByName("messageId")
 	var req struct {
 		TargetConversationID string `json:"targetConversationId"`
+		ForwarderName        string `json:"forwarderName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	userID, err := rt.getAuthenticatedUserID(r)
+	currentUserID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	originalMessage, err := rt.db.GetMessage(messageID, userID)
+	originalMessage, err := rt.db.GetMessage(messageID, currentUserID)
 	if err != nil {
 		if errors.Is(err, database.ErrMessageDoesNotExist) {
 			http.Error(w, "Message not found", http.StatusNotFound)
@@ -320,22 +315,22 @@ func (rt *_router) forwardMessage(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	newContent := "<strong>Forwarded from " + req.ForwarderName + ":</strong> " + originalMessage.Content
 	newMessage := database.Message{
-		Id:               newMessageID,
-		ConversationId:   req.TargetConversationID,
-		SenderId:         originalMessage.SenderId,
-		Content:          originalMessage.Content,
-		Timestamp:        time.Now().Format(time.RFC3339),
-		ForwardedMessage: &originalMessage.Id,
+		Id:             newMessageID,
+		ConversationId: req.TargetConversationID,
+		SenderId:       currentUserID,
+		SenderName:     req.ForwarderName,
+		Content:        newContent,
+		Timestamp:      time.Now().Format(time.RFC3339),
+		Attachment:     originalMessage.Attachment,
 	}
-
 	if _, err := rt.db.SaveMessage(
 		newMessage.ConversationId,
 		newMessage.SenderId,
 		newMessage.Id,
 		newMessage.Content,
-		newMessage.ForwardedMessage,
-		nil,
+		newMessage.Attachment,
 	); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to save forwarded message")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

@@ -12,13 +12,11 @@
         :class="message.senderId === userToken ? 'self' : 'other'"
       >
         <div class="message-content" @click.stop>
-          <p>
-            <strong v-if="message.forwardedMessageId">
-              Forwarded from {{ message.senderName || 'Unknown Sender' }}:
-            </strong>
-            <strong v-else>
-              {{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}:
-            </strong>
+          <p v-if="message.content.startsWith('<strong>Forwarded from')"
+            v-html="message.content">
+          </p>
+          <p v-else>
+            <strong>{{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}:</strong>
             {{ message.content }}
           </p>
           <div v-if="message.attachment" class="attachment-container">
@@ -412,9 +410,10 @@ export default {
       if (!message) return;
       try {
         const token = localStorage.getItem("token");
+        const forwarderName = localStorage.getItem("name") || "Unknown";
         await axios.post(
           `/conversations/${this.conversationId}/message/${messageId}/forward`,
-          { sourceMessageId: message.id, targetConversationId: targetConversationId },
+          { targetConversationId: targetConversationId, forwarderName: forwarderName },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         alert("Message forwarded successfully!");
