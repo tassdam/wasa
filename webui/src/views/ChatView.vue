@@ -1,6 +1,9 @@
 <template>
   <div class="chat-container">
     <div class="chat-header">
+      <div class="chat-photo" v-if="conversationPhoto">
+        <img :src="'data:image/jpeg;base64,' + conversationPhoto" alt="Chat Thumbnail" />
+      </div>
       <h3>{{ convName }}</h3>
     </div>
     <div class="chat-messages" ref="chatMessages">
@@ -11,17 +14,23 @@
         class="message"
         :class="message.senderId === userToken ? 'self' : 'other'"
       >
+        <div
+          v-if="message.senderId !== userToken"
+          class="sender-thumbnail"
+        >
+          <img :src="'data:image/jpeg;base64,' + message.senderPhoto" alt="Sender Photo" />
+        </div>
         <div class="message-content" @click.stop>
-          <p v-if="message.content.startsWith('<strong>Forwarded from')"
-            v-html="message.content">
-          </p>
+          <p v-if="message.content.startsWith('<strong>Forwarded from')" v-html="message.content"></p>
           <p v-else>
-            <strong>{{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}:</strong>
+            <strong>
+              {{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}:
+            </strong>
             {{ message.content }}
           </p>
           <div v-if="message.attachment" class="attachment-container">
-            <img 
-              :src="'data:image/png;base64,' + message.attachment" 
+            <img
+              :src="'data:image/jpeg;base64,' + message.attachment"
               alt="Attachment"
               class="attachment-image"
             />
@@ -30,7 +39,7 @@
           <div v-if="message.reactionCount > 0" class="reaction-count">
             ❤️ × {{ message.reactionCount }}
           </div>
-          <button 
+          <button
             v-if="message.senderId !== userToken"
             class="action-button heart-button"
             :style="getActionButtonStyle(message)"
@@ -39,15 +48,7 @@
           >
             ❤️
           </button>
-          <button 
-            class="action-button forward-button"
-            :style="getForwardButtonStyle(message)"
-            @click.stop="showForwardOptions(message.id)"
-          >
-            →
-          </button>
-          <button 
-            v-if="message.senderId === userToken"
+          <button
             class="action-button forward-button"
             :style="getForwardButtonStyle(message)"
             @click.stop="showForwardOptions(message.id)"
@@ -62,57 +63,44 @@
           >
             ✖
           </button>
-
           <div v-if="messageOptions[message.id]?.showForwardMenu" class="forward-options" @click.stop>
             <label for="forward-select">Forward to:</label>
-            <select
-              id="forward-select"
-              class="forward-select"
-              v-model="messageOptions[message.id].selectedConversationId"
-            >
+            <select id="forward-select"
+                    class="forward-select"
+                    v-model="messageOptions[message.id].selectedConversationId">
               <option value="" disabled>Select conversation</option>
-              <option
-                v-for="conv in messageOptions[message.id].forwardConversations"
-                :key="conv.id"
-                :value="conv.id"
-              >
+              <option v-for="conv in messageOptions[message.id].forwardConversations"
+                      :key="conv.id"
+                      :value="conv.id">
                 {{ conv.name }}
               </option>
               <option value="new">New contact</option>
             </select>
             <div v-if="messageOptions[message.id].selectedConversationId === 'new'" class="contact-search">
-              <input
-                type="text"
-                v-model="messageOptions[message.id].contactQuery"
-                placeholder="Enter contact name"
-                @input="searchContact(message.id)"
-              />
+              <input type="text"
+                     v-model="messageOptions[message.id].contactQuery"
+                     placeholder="Enter contact name"
+                     @input="searchContact(message.id)" />
               <ul v-if="messageOptions[message.id].contactResults.length > 0" class="contact-results">
-                <li
-                  v-for="contact in messageOptions[message.id].contactResults"
-                  :key="contact.id"
-                  @click="selectContact(contact, message.id)"
-                  class="contact-result"
-                >
+                <li v-for="contact in messageOptions[message.id].contactResults"
+                    :key="contact.id"
+                    @click="selectContact(contact, message.id)"
+                    class="contact-result">
                   {{ contact.name }}
                 </li>
               </ul>
             </div>
             <div class="forward-buttons-container">
-              <button
-                class="button-style"
-                v-if="messageOptions[message.id].selectedConversationId !== 'new'"
-                :disabled="!messageOptions[message.id].selectedConversationId"
-                @click.stop="forwardMessage(messageOptions[message.id].selectedConversationId, message.id)"
-              >
+              <button class="button-style"
+                      v-if="messageOptions[message.id].selectedConversationId !== 'new'"
+                      :disabled="!messageOptions[message.id].selectedConversationId"
+                      @click.stop="forwardMessage(messageOptions[message.id].selectedConversationId, message.id)">
                 Send
               </button>
-              <button
-                class="button-style"
-                v-if="messageOptions[message.id].selectedConversationId === 'new'"
-                :disabled="!messageOptions[message.id].selectedContactId"
-                @click.stop="forwardToContact(messageOptions[message.id].selectedContactId, message.id)"
-              >
+              <button class="button-style"
+                      v-if="messageOptions[message.id].selectedConversationId === 'new'"
+                      :disabled="!messageOptions[message.id].selectedContactId"
+                      @click.stop="forwardToContact(messageOptions[message.id].selectedContactId, message.id)">
                 Send
               </button>
               <button class="button-style" @click.stop="closeForwardMenu(message.id)">Cancel</button>
@@ -125,13 +113,13 @@
       </div>
     </div>
     <div class="chat-input">
-      <input 
-        type="file" 
-        ref="fileInput" 
-        style="display: none" 
+      <input
+        type="file"
+        ref="fileInput"
+        style="display: none"
         accept="image/*, .gif"
         @change="handleFileSelect"
-      >
+      />
       <button class="attach-button" @click="triggerFileInput">
         Attach Image or GIF
         <span v-if="selectedFile" class="file-icon">🖼️</span>
@@ -165,6 +153,7 @@ export default {
       messages: [],
       userToken: localStorage.getItem("token"),
       convName: localStorage.getItem("conversationName") || "Unknown User",
+      conversationPhoto: null,
       conversationId: this.$route.params.uuid,
       messageOptions: {},
       selectedFile: null,
@@ -194,16 +183,12 @@ export default {
         await axios.post(
           `/conversations/${this.conversationId}/message`,
           formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         this.message = "";
         this.selectedFile = null;
         this.$refs.fileInput.value = "";
-        await this.fetchMessages(); 
+        await this.fetchMessages();
         this.$nextTick(() => {
           this.forceScrollToBottom();
         });
@@ -220,16 +205,24 @@ export default {
         }
         const response = await axios.get(
           `/conversations/${this.conversationId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         this.messages = (response.data.messages || []).map(msg => ({
           ...msg,
           reactingUserIDs: msg.reactingUserIDs || []
         }));
+        if (response.data.name) {
+          this.convName = response.data.name;
+        }
+        if (
+          response.data.conversationPhoto &&
+          response.data.conversationPhoto.String
+        ) {
+          this.conversationPhoto =
+            response.data.conversationPhoto.String;
+        } else {
+          this.conversationPhoto = null;
+        }
         this.$nextTick(() => {
           if (this.firstLoad) {
             this.forceScrollToBottom();
@@ -288,11 +281,7 @@ export default {
         }
         await axios.delete(
           `/conversations/${this.conversationId}/message/${message.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         this.messages = this.messages.filter(m => m.id !== message.id);
       } catch (error) {
@@ -342,7 +331,6 @@ export default {
         const response = await axios.get('/conversations', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        // Exclude the current conversation
         const conversations = response.data.filter(conv => conv.id !== this.conversationId);
         this.messageOptions[messageId].forwardConversations = conversations;
       } catch (error) {
@@ -455,11 +443,26 @@ export default {
   height: 92vh;
   overflow: hidden;
 }
+
 .chat-header {
+  display: flex;
+  align-items: center;
   padding: 15px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
 }
+.chat-photo {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+}
+.chat-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 .chat-messages {
   display: flex;
   flex-direction: column;
@@ -469,34 +472,46 @@ export default {
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
 }
+
 .message {
   max-width: 70%;
   margin-bottom: 10px;
   position: relative;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  border-radius: 10px;
+  padding: 10px;
 }
+
 .message.self {
   margin-left: auto;
   background-color: #d1e7dd;
-  padding: 10px;
-  border-radius: 10px;
 }
+
 .message.other {
   background-color: #e0f2f1;
-  padding: 10px;
-  border-radius: 10px;
+  padding-left: 45px; 
+  position: relative;
 }
+
+.sender-thumbnail {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 30px;
+  height: 30px;
+}
+.sender-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 .message-content {
   position: relative;
-  padding-right: 80px; 
   min-height: 40px;
 }
 .message p {
   margin: 0;
-  margin-right: -60px;
-  padding-right: 10px;
   color: #333;
   word-wrap: break-word;
   word-break: break-word;
@@ -505,21 +520,21 @@ export default {
 .message small {
   margin-top: 5px;
   color: #666;
-  display: block;
   font-size: 0.8em;
 }
-.message.self small {
-  text-align: right;
-}
+
 .attachment-container {
   margin-top: 8px;
-  max-width: 300px;
+  width: 300px;
+  height: 300px;
+  overflow: hidden;
+  border: 1px solid #ddd;
+  border-radius: 8px;
 }
 .attachment-image {
-  max-width: 100%;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  margin-top: 4px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .chat-input {
@@ -583,10 +598,7 @@ export default {
 }
 .action-button:hover {
   opacity: 1;
-  background-color: white;
 }
-
-/* Forward options menu */
 .forward-options {
   position: absolute;
   top: 30px;
@@ -624,7 +636,6 @@ export default {
   background-color: #ccc;
   cursor: not-allowed;
 }
-
 .contact-search input {
   width: 100%;
   padding: 6px;
@@ -649,12 +660,10 @@ export default {
 .contact-result:hover {
   background-color: #f0f0f0;
 }
-
 .file-icon {
   font-size: 18px;
   margin-left: 5px;
 }
-
 @media (max-width: 600px) {
   .conversation-block p {
     -webkit-line-clamp: 3;

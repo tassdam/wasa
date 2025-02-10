@@ -95,7 +95,7 @@ func (rt *_router) getConversation(
 		return
 	}
 
-	conversation, err := rt.db.GetConversationDetails(conversationID)
+	conversation, err := rt.db.GetConversationDetails(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation details")
 		if errors.Is(err, database.ErrConversationDoesNotExist) {

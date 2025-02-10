@@ -76,7 +76,7 @@ type AppDatabase interface {
 	SaveMessage(conversationID, senderID, messageID, content string, attachment []byte) (Message, error)
 	InsertDeliveryReceipt(messageID, userID, deliveredAt string) error
 	IsUserInConversation(conversationID, userID string) (bool, error)
-	GetConversationDetails(conversationID string) (Conversation, error)
+	GetConversationDetails(conversationID, currentUserID string) (Conversation, error)
 	GetMessagesForConversation(conversationID string) ([]Message, error)
 	GetMyConversations(userID string) ([]Conversation, error)
 	GetConversationMembers(conversationID string) ([]string, error)

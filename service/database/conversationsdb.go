@@ -137,14 +137,21 @@ func (db *appdbimpl) IsUserInConversation(conversationID, userID string) (bool, 
 	return exists, nil
 }
 
-func (db *appdbimpl) GetConversationDetails(conversationID string) (Conversation, error) {
+func (db *appdbimpl) GetConversationDetails(conversationID, currentUserID string) (Conversation, error) {
 	var conversation Conversation
+	var photoData []byte
 
 	err := db.c.QueryRow(`
-		SELECT id, name, type, created_at
+		SELECT id, name, type, created_at, conversationPhoto
 		FROM conversations
 		WHERE id = ?
-	`, conversationID).Scan(&conversation.Id, &conversation.Name, &conversation.Type, &conversation.CreatedAt)
+	`, conversationID).Scan(
+		&conversation.Id,
+		&conversation.Name,
+		&conversation.Type,
+		&conversation.CreatedAt,
+		&photoData,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Conversation{}, ErrConversationDoesNotExist
 	}
@@ -152,11 +159,40 @@ func (db *appdbimpl) GetConversationDetails(conversationID string) (Conversation
 		return Conversation{}, fmt.Errorf("error fetching conversation details: %w", err)
 	}
 
+	if len(photoData) > 0 {
+		conversation.ConversationPhoto = sql.NullString{
+			String: base64.StdEncoding.EncodeToString(photoData),
+			Valid:  true,
+		}
+	} else {
+		conversation.ConversationPhoto = sql.NullString{Valid: false}
+	}
+
 	members, err := db.GetConversationMembers(conversationID)
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation members: %w", err)
 	}
 	conversation.Members = members
+
+	if conversation.Type == "direct" {
+		var otherUserID string
+		for _, m := range members {
+			if m != currentUserID {
+				otherUserID = m
+				break
+			}
+		}
+		if otherUserID != "" {
+			var userPhotoData []byte
+			err := db.c.QueryRow("SELECT photo FROM users WHERE id = ?", otherUserID).Scan(&userPhotoData)
+			if err == nil && len(userPhotoData) > 0 {
+				conversation.ConversationPhoto = sql.NullString{
+					String: base64.StdEncoding.EncodeToString(userPhotoData),
+					Valid:  true,
+				}
+			}
+		}
+	}
 
 	messages, err := db.GetMessagesForConversation(conversationID)
 	if err != nil {
