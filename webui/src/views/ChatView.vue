@@ -13,8 +13,9 @@
         :key="message.id"
         class="message"
         :class="message.senderId === userToken ? 'self' : 'other'"
+        :style="message.senderId !== userToken && conversationType === 'group' ? { paddingLeft: '45px' } : {}"
       >
-        <div v-if="conversationType==='group' && message.senderId !== userToken" class="sender-thumbnail">
+        <div v-if="conversationType === 'group' && message.senderId !== userToken" class="sender-thumbnail">
           <img :src="'data:image/jpeg;base64,' + message.senderPhoto" alt="Sender Photo" />
         </div>
         <div class="message-content" @click.stop>
@@ -349,7 +350,6 @@ export default {
 }
 .message.other {
   background-color: #e0f2f1;
-  padding-left: 45px;
   position: relative;
 }
 .sender-thumbnail {
