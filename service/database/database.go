@@ -47,6 +47,7 @@ type Message struct {
 	SenderPhoto     string   `json:"senderPhoto,omitempty"`
 	ReactionCount   int      `json:"reactionCount"`
 	ReactingUserIDs []string `json:"reactingUserIds"`
+	Status          string   `json:"status"`
 }
 
 type Comment struct {
@@ -92,6 +93,7 @@ type AppDatabase interface {
 	AddUserToGroup(conversationID string, userID string) error
 	CommentMessage(commentID, messageID, authorID string) error
 	UncommentMessage(messageID, authorID string) error
+	MarkMessagesAsRead(conversationID, userID string) error
 }
 
 // appdbimpl is the internal implementation of AppDatabase.

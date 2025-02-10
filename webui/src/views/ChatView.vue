@@ -87,6 +87,10 @@
             </div>
           </div>
         </div>
+        <!-- New status checkmark element: shows "D" or "R" in bottom-right corner -->
+        <div class="message-status" v-if="message.status">
+          {{ message.status }}
+        </div>
       </div>
     </div>
     <div class="chat-input">
@@ -519,6 +523,14 @@ export default {
 .file-icon {
   font-size: 18px;
   margin-left: 5px;
+}
+/* New CSS for message status checkmark */
+.message-status {
+  position: absolute;
+  bottom: 5px;
+  right: 10px;
+  font-size: 12px;
+  color: #555;
 }
 @media (max-width: 600px) {
   .conversation-block p {

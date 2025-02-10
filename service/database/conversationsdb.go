@@ -205,30 +205,29 @@ func (db *appdbimpl) GetConversationDetails(conversationID, currentUserID string
 
 func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Message, error) {
 	query := `
-        SELECT 
-            m.id, 
-            m.conversationId, 
-            m.senderId, 
-            m.content, 
-            m.timestamp, 
-            m.attachment,
-            u.name AS senderName,
-            u.photo AS senderPhoto,
-            COUNT(c.id) AS reaction_count,
-            GROUP_CONCAT(c.authorId) AS reacting_users
-        FROM 
-            messages m
-        JOIN 
-            users u ON m.senderId = u.id
-        LEFT JOIN 
-            comments c ON m.id = c.messageId
-        WHERE 
-            m.conversationId = ?
-        GROUP BY 
-            m.id
-        ORDER BY 
-            m.timestamp ASC
-    `
+SELECT 
+    m.id, 
+    m.conversationId, 
+    m.senderId, 
+    m.content, 
+    m.timestamp, 
+    m.attachment,
+    u.name AS senderName,
+    u.photo AS senderPhoto,
+    -- Calculate the total number of recipients (all conversation members minus the sender)
+    ((SELECT COUNT(*) FROM conversation_members WHERE conversationId = m.conversationId) - 1) AS totalRecipients,
+    -- Count how many receipts have a non-null readAt for this message
+    (SELECT COUNT(*) FROM read_receipts WHERE messageId = m.id AND readAt IS NOT NULL) AS readCount,
+    -- Reaction fields: count and concatenation of reacting user IDs
+    COUNT(c.id) AS reaction_count,
+    GROUP_CONCAT(c.authorId) AS reacting_users
+FROM messages m
+JOIN users u ON m.senderId = u.id
+LEFT JOIN comments c ON m.id = c.messageId
+WHERE m.conversationId = ?
+GROUP BY m.id
+ORDER BY m.timestamp ASC;
+`
 	rows, err := db.c.Query(query, conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching messages: %w", err)
@@ -237,37 +236,51 @@ func (db *appdbimpl) GetMessagesForConversation(conversationID string) ([]Messag
 
 	var messages []Message
 	for rows.Next() {
-		var message Message
+		var msg Message
 		var senderPhoto []byte
+		var totalRecipients, readCount, reactionCount int
 		var reactingUsers sql.NullString
 
 		err := rows.Scan(
-			&message.Id,
-			&message.ConversationId,
-			&message.SenderId,
-			&message.Content,
-			&message.Timestamp,
-			&message.Attachment,
-			&message.SenderName,
+			&msg.Id,
+			&msg.ConversationId,
+			&msg.SenderId,
+			&msg.Content,
+			&msg.Timestamp,
+			&msg.Attachment,
+			&msg.SenderName,
 			&senderPhoto,
-			&message.ReactionCount,
+			&totalRecipients,
+			&readCount,
+			&reactionCount,
 			&reactingUsers,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error scanning message row: %w", err)
 		}
 
+		// Convert sender's photo to base64 string if available.
 		if senderPhoto != nil {
-			message.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
+			msg.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
 		}
 
-		if reactingUsers.Valid {
-			message.ReactingUserIDs = strings.Split(reactingUsers.String, ",")
+		// Process reactions.
+		msg.ReactionCount = reactionCount
+		if reactingUsers.Valid && reactingUsers.String != "" {
+			msg.ReactingUserIDs = strings.Split(reactingUsers.String, ",")
 		} else {
-			message.ReactingUserIDs = []string{}
+			msg.ReactingUserIDs = []string{}
 		}
 
-		messages = append(messages, message)
+		// Compute the status based on the number of expected recipients vs read receipts.
+		// If there is at least one recipient and readCount is as many as expected, mark as read.
+		if totalRecipients > 0 && readCount >= totalRecipients {
+			msg.Status = "✓✓" // Two check marks (read)
+		} else {
+			msg.Status = "✓" // Single check mark (delivered)
+		}
+
+		messages = append(messages, msg)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -446,4 +459,17 @@ func (db *appdbimpl) GetMessage(messageID, userID string) (Message, error) {
 		return message, fmt.Errorf("error fetching message: %w", err)
 	}
 	return message, nil
+}
+
+func (db *appdbimpl) MarkMessagesAsRead(conversationID, userID string) error {
+	// Update the read_receipts table so that, for all messages in the conversation,
+	// if the current user has a receipt record that is not yet marked as read, set it.
+	_, err := db.c.Exec(`
+        UPDATE read_receipts
+        SET readAt = CURRENT_TIMESTAMP
+        WHERE messageId IN (SELECT id FROM messages WHERE conversationId = ?)
+          AND userId = ?
+          AND readAt IS NULL
+    `, conversationID, userID)
+	return err
 }

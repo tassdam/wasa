@@ -70,9 +70,7 @@ func (rt *_router) getConversation(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-
 	conversationID := ps.ByName("conversationId")
-
 	if conversationID == "" {
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
 		return
@@ -84,6 +82,7 @@ func (rt *_router) getConversation(
 		return
 	}
 
+	// Check membership
 	isMember, err := rt.db.IsUserInConversation(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to check conversation membership")
@@ -95,6 +94,14 @@ func (rt *_router) getConversation(
 		return
 	}
 
+	// Update the read receipts for all messages sent by others in this conversation
+	// (In group chats, this will update the current user’s receipt)
+	if err := rt.db.MarkMessagesAsRead(conversationID, userID); err != nil {
+		ctx.Logger.WithError(err).Error("Failed to mark messages as read")
+		// Optionally continue even if marking fails
+	}
+
+	// Now get and return the conversation details (including messages)
 	conversation, err := rt.db.GetConversationDetails(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation details")
