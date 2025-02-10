@@ -14,10 +14,7 @@
         class="message"
         :class="message.senderId === userToken ? 'self' : 'other'"
       >
-        <div
-          v-if="message.senderId !== userToken"
-          class="sender-thumbnail"
-        >
+        <div v-if="conversationType==='group' && message.senderId !== userToken" class="sender-thumbnail">
           <img :src="'data:image/jpeg;base64,' + message.senderPhoto" alt="Sender Photo" />
         </div>
         <div class="message-content" @click.stop>
@@ -29,11 +26,7 @@
             {{ message.content }}
           </p>
           <div v-if="message.attachment" class="attachment-container">
-            <img
-              :src="'data:image/jpeg;base64,' + message.attachment"
-              alt="Attachment"
-              class="attachment-image"
-            />
+            <img :src="'data:image/jpeg;base64,' + message.attachment" alt="Attachment" class="attachment-image" />
           </div>
           <small>{{ formatTimestamp(message.timestamp) }}</small>
           <div v-if="message.reactionCount > 0" class="reaction-count">
@@ -64,43 +57,26 @@
             ✖
           </button>
           <div v-if="messageOptions[message.id]?.showForwardMenu" class="forward-options" @click.stop>
-            <label for="forward-select">Forward to:</label>
-            <select id="forward-select"
-                    class="forward-select"
-                    v-model="messageOptions[message.id].selectedConversationId">
+            <select id="forward-select" class="forward-select" v-model="messageOptions[message.id].selectedConversationId">
               <option value="" disabled>Select conversation</option>
-              <option v-for="conv in messageOptions[message.id].forwardConversations"
-                      :key="conv.id"
-                      :value="conv.id">
+              <option v-for="conv in messageOptions[message.id].forwardConversations" :key="conv.id" :value="conv.id">
                 {{ conv.name }}
               </option>
               <option value="new">New contact</option>
             </select>
             <div v-if="messageOptions[message.id].selectedConversationId === 'new'" class="contact-search">
-              <input type="text"
-                     v-model="messageOptions[message.id].contactQuery"
-                     placeholder="Enter contact name"
-                     @input="searchContact(message.id)" />
+              <input type="text" v-model="messageOptions[message.id].contactQuery" placeholder="Enter contact name" @input="searchContact(message.id)" />
               <ul v-if="messageOptions[message.id].contactResults.length > 0" class="contact-results">
-                <li v-for="contact in messageOptions[message.id].contactResults"
-                    :key="contact.id"
-                    @click="selectContact(contact, message.id)"
-                    class="contact-result">
+                <li v-for="contact in messageOptions[message.id].contactResults" :key="contact.id" @click="selectContact(contact, message.id)" class="contact-result">
                   {{ contact.name }}
                 </li>
               </ul>
             </div>
             <div class="forward-buttons-container">
-              <button class="button-style"
-                      v-if="messageOptions[message.id].selectedConversationId !== 'new'"
-                      :disabled="!messageOptions[message.id].selectedConversationId"
-                      @click.stop="forwardMessage(messageOptions[message.id].selectedConversationId, message.id)">
+              <button class="button-style" v-if="messageOptions[message.id].selectedConversationId !== 'new'" :disabled="!messageOptions[message.id].selectedConversationId" @click.stop="forwardMessage(messageOptions[message.id].selectedConversationId, message.id)">
                 Send
               </button>
-              <button class="button-style"
-                      v-if="messageOptions[message.id].selectedConversationId === 'new'"
-                      :disabled="!messageOptions[message.id].selectedContactId"
-                      @click.stop="forwardToContact(messageOptions[message.id].selectedContactId, message.id)">
+              <button class="button-style" v-if="messageOptions[message.id].selectedConversationId === 'new'" :disabled="!messageOptions[message.id].selectedContactId" @click.stop="forwardToContact(messageOptions[message.id].selectedContactId, message.id)">
                 Send
               </button>
               <button class="button-style" @click.stop="closeForwardMenu(message.id)">Cancel</button>
@@ -113,29 +89,13 @@
       </div>
     </div>
     <div class="chat-input">
-      <input
-        type="file"
-        ref="fileInput"
-        style="display: none"
-        accept="image/*, .gif"
-        @change="handleFileSelect"
-      />
+      <input type="file" ref="fileInput" style="display: none" accept="image/*, .gif" @change="handleFileSelect" />
       <button class="attach-button" @click="triggerFileInput">
         Attach Image or GIF
         <span v-if="selectedFile" class="file-icon">🖼️</span>
       </button>
-      <input
-        v-model="message"
-        class="message-input"
-        type="text"
-        placeholder="Type a message..."
-        @input="toggleSendButton"
-      />
-      <button
-        v-if="message.trim() || selectedFile"
-        class="send-button"
-        @click="sendMessage"
-      >
+      <input v-model="message" class="message-input" type="text" placeholder="Type a message..." @input="toggleSendButton" />
+      <button v-if="message.trim() || selectedFile" class="send-button" @click="sendMessage">
         Send
       </button>
     </div>
@@ -144,7 +104,6 @@
 
 <script>
 import axios from "../services/axios";
-
 export default {
   name: "ChatView",
   data() {
@@ -154,11 +113,12 @@ export default {
       userToken: localStorage.getItem("token"),
       convName: localStorage.getItem("conversationName") || "Unknown User",
       conversationPhoto: null,
+      conversationType: null,
       conversationId: this.$route.params.uuid,
       messageOptions: {},
       selectedFile: null,
       pollIntervalId: null,
-      firstLoad: true  
+      firstLoad: true
     };
   },
   methods: {
@@ -169,70 +129,52 @@ export default {
       this.selectedFile = event.target.files[0];
     },
     async sendMessage() {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          this.$router.push({ path: "/" });
-          return;
-        }
-        const formData = new FormData();
-        formData.append("content", this.message);
-        if (this.selectedFile) {
-          formData.append("attachment", this.selectedFile);
-        }
-        await axios.post(
-          `/conversations/${this.conversationId}/message`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        this.message = "";
-        this.selectedFile = null;
-        this.$refs.fileInput.value = "";
-        await this.fetchMessages();
-        this.$nextTick(() => {
-          this.forceScrollToBottom();
-        });
-      } catch (error) {
-        console.error("Failed to send message:", error);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        this.$router.push({ path: "/" });
+        return;
       }
+      const formData = new FormData();
+      formData.append("content", this.message);
+      if (this.selectedFile) {
+        formData.append("attachment", this.selectedFile);
+      }
+      await axios.post(`/conversations/${this.conversationId}/message`, formData, { headers: { Authorization: `Bearer ${token}` } });
+      this.message = "";
+      this.selectedFile = null;
+      this.$refs.fileInput.value = "";
+      await this.fetchMessages();
+      this.$nextTick(() => {
+        this.forceScrollToBottom();
+      });
     },
     async fetchMessages() {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          this.$router.push({ path: "/" });
-          return;
-        }
-        const response = await axios.get(
-          `/conversations/${this.conversationId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        this.messages = (response.data.messages || []).map(msg => ({
-          ...msg,
-          reactingUserIDs: msg.reactingUserIDs || []
-        }));
-        if (response.data.name) {
-          this.convName = response.data.name;
-        }
-        if (
-          response.data.conversationPhoto &&
-          response.data.conversationPhoto.String
-        ) {
-          this.conversationPhoto =
-            response.data.conversationPhoto.String;
-        } else {
-          this.conversationPhoto = null;
-        }
-        this.$nextTick(() => {
-          if (this.firstLoad) {
-            this.forceScrollToBottom();
-            this.firstLoad = false;
-          }
-        });
-      } catch (error) {
-        console.error("Failed to fetch messages:", error);
-        alert("Failed to load messages. Please try again later.");
+      const token = localStorage.getItem("token");
+      if (!token) {
+        this.$router.push({ path: "/" });
+        return;
       }
+      const response = await axios.get(`/conversations/${this.conversationId}`, { headers: { Authorization: `Bearer ${token}` } });
+      this.messages = (response.data.messages || []).map(msg => ({ ...msg, reactingUserIDs: msg.reactingUserIDs || [] }));
+      if (response.data.name) {
+        this.convName = response.data.name;
+      }
+      if (response.data.conversationPhoto && response.data.conversationPhoto.String) {
+        this.conversationPhoto = response.data.conversationPhoto.String;
+      } else {
+        this.conversationPhoto = null;
+      }
+      if (response.data.type) {
+        this.conversationType = response.data.type;
+      } else {
+        this.conversationType = "direct";
+      }
+      this.$nextTick(() => {
+        if (this.firstLoad) {
+          this.forceScrollToBottom();
+          this.firstLoad = false;
+        }
+      });
     },
     forceScrollToBottom() {
       const chat = this.$refs.chatMessages;
@@ -241,53 +183,33 @@ export default {
       }
     },
     async toggleReaction(message) {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token || message.senderId === this.userToken) return;
-        const hasReacted = (message.reactingUserIDs || []).includes(token);
-        if (hasReacted) {
-          await axios.delete(
-            `/conversations/${this.conversationId}/message/${message.id}/comment`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const userIndex = message.reactingUserIDs.indexOf(this.userToken);
-          if (userIndex > -1) {
-            message.reactingUserIDs.splice(userIndex, 1);
-            message.reactionCount = Math.max(0, message.reactionCount - 1);
-          }
-        } else {
-          await axios.post(
-            `/conversations/${this.conversationId}/message/${message.id}/comment`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (!message.reactingUserIDs) {
-            message.reactingUserIDs = [];
-          }
-          message.reactingUserIDs.push(this.userToken);
-          message.reactionCount = (message.reactionCount || 0) + 1;
+      const token = localStorage.getItem("token");
+      if (!token || message.senderId === this.userToken) return;
+      const hasReacted = (message.reactingUserIDs || []).includes(token);
+      if (hasReacted) {
+        await axios.delete(`/conversations/${this.conversationId}/message/${message.id}/comment`, { headers: { Authorization: `Bearer ${token}` } });
+        const userIndex = message.reactingUserIDs.indexOf(this.userToken);
+        if (userIndex > -1) {
+          message.reactingUserIDs.splice(userIndex, 1);
+          message.reactionCount = Math.max(0, message.reactionCount - 1);
         }
-      } catch (error) {
-        console.error("Failed to toggle reaction:", error);
-        alert("Failed to update reaction. Please try again.");
+      } else {
+        await axios.post(`/conversations/${this.conversationId}/message/${message.id}/comment`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        if (!message.reactingUserIDs) {
+          message.reactingUserIDs = [];
+        }
+        message.reactingUserIDs.push(this.userToken);
+        message.reactionCount = (message.reactionCount || 0) + 1;
       }
     },
     async deleteMessage(message) {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          this.$router.push({ path: "/" });
-          return;
-        }
-        await axios.delete(
-          `/conversations/${this.conversationId}/message/${message.id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        this.messages = this.messages.filter(m => m.id !== message.id);
-      } catch (error) {
-        console.error("Failed to delete message:", error);
-        alert("Failed to delete message. Please try again later.");
+      const token = localStorage.getItem("token");
+      if (!token) {
+        this.$router.push({ path: "/" });
+        return;
       }
+      await axios.delete(`/conversations/${this.conversationId}/message/${message.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      this.messages = this.messages.filter(m => m.id !== message.id);
     },
     formatTimestamp(timestamp) {
       const date = new Date(timestamp);
@@ -296,14 +218,7 @@ export default {
     showForwardOptions(messageId) {
       this.closeAllMenus();
       if (!this.messageOptions[messageId]) {
-        this.messageOptions[messageId] = {
-          showForwardMenu: true,
-          forwardConversations: [],
-          selectedConversationId: "",
-          contactQuery: "",
-          contactResults: [],
-          selectedContactId: ""
-        };
+        this.messageOptions[messageId] = { showForwardMenu: true, forwardConversations: [], selectedConversationId: "", contactQuery: "", contactResults: [], selectedContactId: "" };
         this.fetchForwardConversations(messageId);
       } else {
         this.messageOptions[messageId].showForwardMenu = !this.messageOptions[messageId].showForwardMenu;
@@ -326,17 +241,10 @@ export default {
       }
     },
     async fetchForwardConversations(messageId) {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get('/conversations', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const conversations = response.data.filter(conv => conv.id !== this.conversationId);
-        this.messageOptions[messageId].forwardConversations = conversations;
-      } catch (error) {
-        console.error("Failed to fetch conversations:", error);
-        alert("Failed to fetch conversations. Please try again.");
-      }
+      const token = localStorage.getItem("token");
+      const response = await axios.get('/conversations', { headers: { Authorization: `Bearer ${token}` } });
+      const conversations = response.data.filter(conv => conv.id !== this.conversationId);
+      this.messageOptions[messageId].forwardConversations = conversations;
     },
     async searchContact(messageId) {
       const query = this.messageOptions[messageId].contactQuery;
@@ -344,17 +252,9 @@ export default {
         this.messageOptions[messageId].contactResults = [];
         return;
       }
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get('/search', {
-          params: { username: query },
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        this.messageOptions[messageId].contactResults = response.data;
-      } catch (error) {
-        console.error("Contact search failed:", error);
-        this.messageOptions[messageId].contactResults = [];
-      }
+      const token = localStorage.getItem("token");
+      const response = await axios.get('/search', { params: { username: query }, headers: { Authorization: `Bearer ${token}` } });
+      this.messageOptions[messageId].contactResults = response.data;
     },
     selectContact(contact, messageId) {
       this.messageOptions[messageId].selectedContactId = contact.id;
@@ -368,65 +268,31 @@ export default {
         return;
       }
       let conversationResponse;
-      try {
-        conversationResponse = await axios.post(
-          `/conversations`,
-          { senderId: token, recipientId: selectedContactId },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } catch (error) {
-        console.error("Error creating conversation:", error);
-        alert("Failed to create a conversation with the specified contact.");
-        return;
-      }
+      conversationResponse = await axios.post(`/conversations`, { senderId: token, recipientId: selectedContactId }, { headers: { Authorization: `Bearer ${token}` } });
       const targetConversationId = conversationResponse.data.conversationId;
-      try {
-        await axios.post(
-          `/conversations/${this.conversationId}/message/${messageId}/forward`,
-          { sourceMessageId: messageId, targetConversationId: targetConversationId },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("Message forwarded successfully!");
-        this.closeForwardMenu(messageId);
-      } catch (error) {
-        console.error("Failed to forward message:", error);
-        alert("Failed to forward message. Please try again.");
-      }
+      await axios.post(`/conversations/${this.conversationId}/message/${messageId}/forward`, { sourceMessageId: messageId, targetConversationId: targetConversationId }, { headers: { Authorization: `Bearer ${token}` } });
+      alert("Message forwarded successfully!");
+      this.closeForwardMenu(messageId);
     },
     async forwardMessage(targetConversationId, messageId) {
       const message = this.messages.find(m => m.id === messageId);
       if (!message) return;
-      try {
-        const token = localStorage.getItem("token");
-        const forwarderName = localStorage.getItem("name") || "Unknown";
-        await axios.post(
-          `/conversations/${this.conversationId}/message/${messageId}/forward`,
-          { targetConversationId: targetConversationId, forwarderName: forwarderName },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("Message forwarded successfully!");
-        this.closeForwardMenu(messageId);
-      } catch (error) {
-        console.error("Failed to forward message:", error);
-        alert("Failed to forward message. Please try again.");
-      }
+      const token = localStorage.getItem("token");
+      const forwarderName = localStorage.getItem("name") || "Unknown";
+      await axios.post(`/conversations/${this.conversationId}/message/${messageId}/forward`, { targetConversationId: targetConversationId, forwarderName: forwarderName }, { headers: { Authorization: `Bearer ${token}` } });
+      alert("Message forwarded successfully!");
+      this.closeForwardMenu(messageId);
     },
     getForwardButtonStyle(message) {
-      return message.senderId === this.userToken
-        ? { left: '-40px', top: 'calc(50% - 20px)' }
-        : { right: '-40px', top: 'calc(50% - 20px)' };
+      return message.senderId === this.userToken ? { left: '-40px', top: 'calc(50% - 20px)' } : { right: '-40px', top: 'calc(50% - 20px)' };
     },
     getActionButtonStyle(message) {
-      return message.senderId === this.userToken
-        ? { left: '-40px', top: 'calc(50% + 5px)' }
-        : { right: '-40px', top: 'calc(50% + 5px)' };
+      return message.senderId === this.userToken ? { left: '-40px', top: 'calc(50% + 5px)' } : { right: '-40px', top: 'calc(50% + 5px)' };
     }
   },
   mounted() {
     this.fetchMessages();
-    this.pollIntervalId = setInterval(() => {
-      this.fetchMessages();
-    }, 100);
+    this.pollIntervalId = setInterval(() => { this.fetchMessages(); }, 3000);
     document.addEventListener("click", this.handleOutsideClick);
   },
   beforeUnmount() {
@@ -443,7 +309,6 @@ export default {
   height: 92vh;
   overflow: hidden;
 }
-
 .chat-header {
   display: flex;
   align-items: center;
@@ -462,7 +327,6 @@ export default {
   object-fit: cover;
   border-radius: 50%;
 }
-
 .chat-messages {
   display: flex;
   flex-direction: column;
@@ -472,7 +336,6 @@ export default {
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
 }
-
 .message {
   max-width: 70%;
   margin-bottom: 10px;
@@ -480,18 +343,15 @@ export default {
   border-radius: 10px;
   padding: 10px;
 }
-
 .message.self {
   margin-left: auto;
   background-color: #d1e7dd;
 }
-
 .message.other {
   background-color: #e0f2f1;
-  padding-left: 45px; 
+  padding-left: 45px;
   position: relative;
 }
-
 .sender-thumbnail {
   position: absolute;
   left: 10px;
@@ -505,7 +365,6 @@ export default {
   object-fit: cover;
   border-radius: 50%;
 }
-
 .message-content {
   position: relative;
   min-height: 40px;
@@ -522,7 +381,6 @@ export default {
   color: #666;
   font-size: 0.8em;
 }
-
 .attachment-container {
   margin-top: 8px;
   width: 300px;
@@ -536,7 +394,6 @@ export default {
   height: 100%;
   object-fit: cover;
 }
-
 .chat-input {
   display: flex;
   align-items: flex-start;
@@ -579,7 +436,6 @@ export default {
 .send-button:hover {
   background-color: #0f7c6a;
 }
-
 .action-button {
   position: absolute;
   width: 24px;
