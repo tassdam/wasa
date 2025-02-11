@@ -214,16 +214,14 @@ SELECT
     m.attachment,
     u.name AS senderName,
     u.photo AS senderPhoto,
-    -- Calculate the total number of recipients (all conversation members minus the sender)
     ((SELECT COUNT(*) FROM conversation_members WHERE conversationId = m.conversationId) - 1) AS totalRecipients,
-    -- Count how many receipts have a non-null readAt for this message
     (SELECT COUNT(*) FROM read_receipts WHERE messageId = m.id AND readAt IS NOT NULL) AS readCount,
-    -- Reaction fields: count and concatenation of reacting user IDs
     COUNT(c.id) AS reaction_count,
-    GROUP_CONCAT(c.authorId) AS reacting_users
+    GROUP_CONCAT(DISTINCT u2.name) AS reacting_user_names
 FROM messages m
 JOIN users u ON m.senderId = u.id
 LEFT JOIN comments c ON m.id = c.messageId
+LEFT JOIN users u2 ON c.authorId = u2.id
 WHERE m.conversationId = ?
 GROUP BY m.id
 ORDER BY m.timestamp ASC;
@@ -239,7 +237,7 @@ ORDER BY m.timestamp ASC;
 		var msg Message
 		var senderPhoto []byte
 		var totalRecipients, readCount, reactionCount int
-		var reactingUsers sql.NullString
+		var reactingUserNames sql.NullString
 
 		err := rows.Scan(
 			&msg.Id,
@@ -253,31 +251,24 @@ ORDER BY m.timestamp ASC;
 			&totalRecipients,
 			&readCount,
 			&reactionCount,
-			&reactingUsers,
+			&reactingUserNames,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning message row: %w", err)
 		}
-
-		// Convert sender's photo to base64 string if available.
 		if senderPhoto != nil {
 			msg.SenderPhoto = base64.StdEncoding.EncodeToString(senderPhoto)
 		}
-
-		// Process reactions.
 		msg.ReactionCount = reactionCount
-		if reactingUsers.Valid && reactingUsers.String != "" {
-			msg.ReactingUserIDs = strings.Split(reactingUsers.String, ",")
+		if reactingUserNames.Valid && reactingUserNames.String != "" {
+			msg.ReactingUserNames = strings.Split(reactingUserNames.String, ",")
 		} else {
-			msg.ReactingUserIDs = []string{}
+			msg.ReactingUserNames = []string{}
 		}
-
-		// Compute the status based on the number of expected recipients vs read receipts.
-		// If there is at least one recipient and readCount is as many as expected, mark as read.
 		if totalRecipients > 0 && readCount >= totalRecipients {
-			msg.Status = "✓✓" // Two check marks (read)
+			msg.Status = "✓✓"
 		} else {
-			msg.Status = "✓" // Single check mark (delivered)
+			msg.Status = "✓"
 		}
 
 		messages = append(messages, msg)

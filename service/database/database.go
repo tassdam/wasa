@@ -37,17 +37,17 @@ type Conversation struct {
 }
 
 type Message struct {
-	Id              string   `json:"id"`
-	ConversationId  string   `json:"conversationId"`
-	SenderId        string   `json:"senderId"`
-	SenderName      string   `json:"senderName"`
-	Content         string   `json:"content"`
-	Timestamp       string   `json:"timestamp"`
-	Attachment      []byte   `json:"attachment"`
-	SenderPhoto     string   `json:"senderPhoto,omitempty"`
-	ReactionCount   int      `json:"reactionCount"`
-	ReactingUserIDs []string `json:"reactingUserIds"`
-	Status          string   `json:"status"`
+	Id                string   `json:"id"`
+	ConversationId    string   `json:"conversationId"`
+	SenderId          string   `json:"senderId"`
+	SenderName        string   `json:"senderName"`
+	Content           string   `json:"content"`
+	Timestamp         string   `json:"timestamp"`
+	Attachment        []byte   `json:"attachment"`
+	SenderPhoto       string   `json:"senderPhoto,omitempty"`
+	ReactionCount     int      `json:"reactionCount"`
+	ReactingUserNames []string `json:"reactingUserNames"`
+	Status            string   `json:"status"`
 }
 
 type Comment struct {
@@ -153,6 +153,7 @@ func New(db *sql.DB) (AppDatabase, error) {
 			id TEXT NOT NULL PRIMARY KEY,
 			messageId TEXT NOT NULL,
 			authorId TEXT NOT NULL,
+			UNIQUE(messageId, authorId),
 			FOREIGN KEY (messageId) REFERENCES messages(id) ON DELETE CASCADE,
 			FOREIGN KEY (authorId) REFERENCES users(id) ON DELETE CASCADE
 		);`
