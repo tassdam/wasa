@@ -343,5 +343,20 @@ func (rt *_router) forwardMessage(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
+	// Insert delivery receipts for the new forwarded message.
+	members, err := rt.db.GetConversationMembers(req.TargetConversationID)
+	if err != nil {
+		ctx.Logger.WithError(err).Error("Failed to fetch conversation members for forwarded message")
+	} else {
+		for _, memberID := range members {
+			if memberID != currentUserID {
+				if err := rt.db.InsertDeliveryReceipt(newMessageID, memberID, newMessage.Timestamp); err != nil {
+					ctx.Logger.WithError(err).Error("Failed to insert delivery receipt for forwarded message")
+				}
+			}
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
