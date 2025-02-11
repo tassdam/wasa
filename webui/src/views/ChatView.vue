@@ -19,7 +19,7 @@
           <img :src="'data:image/jpeg;base64,' + message.senderPhoto" alt="Sender Photo" />
         </div>
         <div class="message-content">
-          <p v-if="message.content.startsWith('<strong>Forwarded from')" v-html="message.content"></p>
+          <p v-if="message.content.startsWith('<strong>Forwarded')" v-html="message.content"></p>
           <p v-else>
             <strong>
               {{ message.senderId === userToken ? 'You' : (message.senderName || 'Unknown Sender') }}:
@@ -308,9 +308,10 @@ export default {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const targetConversationId = conversationResponse.data.conversationId;
+      const forwarderName = localStorage.getItem("name") || "Unknown";
       await axios.post(
         `/conversations/${this.conversationId}/message/${messageId}/forward`,
-        { sourceMessageId: messageId, targetConversationId: targetConversationId },
+        { sourceMessageId: messageId, targetConversationId: targetConversationId, forwarderName: forwarderName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert("Message forwarded successfully!");
