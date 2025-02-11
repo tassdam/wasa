@@ -22,8 +22,6 @@ tags:
     description: Operations related to comments
   - name: group
     description: Operations related to groups
-  - name: liveness
-    description: Liveness probe
 
 security:
   - BearerAuth: []
@@ -787,42 +785,6 @@ paths:
                     type: string
                     description: Confirmation message.
                     example: "Group photo updated successfully"
-                    pattern: '^.*$'
-                    minLength: 1
-                    maxLength: 100
-  /liveness:
-    get:
-      tags:
-        - liveness
-      summary: Liveness probe
-      description: Returns 200 if the API server is live, 500 otherwise
-      operationId: liveness
-      responses:
-        '200':
-          description: API is live
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: Plain text response.
-                example: "OK"
-                pattern: '^.*$'
-                minLength: 1
-                maxLength: 10
-        '500':
-          description: API is not live
-          content:
-            application/json:
-              schema:
-                type: object
-                description: Error response.
-                required:
-                  - error
-                properties:
-                  error:
-                    type: string
-                    description: Error message.
-                    example: "Not OK"
                     pattern: '^.*$'
                     minLength: 1
                     maxLength: 100
