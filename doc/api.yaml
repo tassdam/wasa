@@ -1039,6 +1039,41 @@ components:
             pattern: '^[a-zA-Z0-9_]+$'
             minLength: 1
             maxLength: 50
+        replyTo:
+          type: string
+          description: (Optional) ID of the message being replied to.
+          example: ""
+          pattern: '^[a-zA-Z0-9_]*$'
+          minLength: 0
+          maxLength: 50
+        replyContent:
+          type: string
+          description: (Optional) A preview of the message being replied to.
+          example: ""
+          pattern: '^.*$'
+          minLength: 0
+          maxLength: 1000
+        replySenderName:
+          type: string
+          description: (Optional) Name of the sender of the replied-to message.
+          example: ""
+          pattern: '^[a-zA-Z0-9 ]*$'
+          minLength: 0
+          maxLength: 50
+        replyAttachment:
+          type: string
+          description: (Optional) Base64-encoded attachment from the replied-to message.
+          example: ""
+          pattern: '^[A-Za-z0-9+/]*={0,2}$'
+          minLength: 0
+          maxLength: 10485760
+        status:
+          type: string
+          description: (Optional) Delivery/read status; provided only for messages not sent by the authenticated user.
+          example: "✓"
+          pattern: '^.*$'
+          minLength: 0
+          maxLength: 10
 
     ForwardMessageRequest:
       type: object
@@ -1052,6 +1087,13 @@ components:
           example: "conv456"
           pattern: '^[a-zA-Z0-9_]+$'
           minLength: 1
+          maxLength: 50
+        forwarderName:
+          type: string
+          description: (Optional) Name of the user forwarding the message.
+          example: "Maria"
+          pattern: '^[a-zA-Z0-9 ]*$'
+          minLength: 0
           maxLength: 50
 
     AddCommentRequest:
