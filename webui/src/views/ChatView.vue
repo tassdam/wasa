@@ -6,6 +6,7 @@
       </div>
       <h3>{{ convName }}</h3>
     </div>
+
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
       <div
@@ -19,6 +20,15 @@
           <img :src="'data:image/jpeg;base64,' + message.senderPhoto" alt="Sender Photo" />
         </div>
         <div class="message-content">
+          <div v-if="message.replyTo" class="reply-preview">
+            <small>Replying to {{ message.replySenderName || 'Unknown' }}: {{ message.replyContent }}</small>
+            <img
+              v-if="message.replyAttachment"
+              :src="'data:image/jpeg;base64,' + message.replyAttachment"
+              alt="Reply Attachment"
+              class="reply-attachment"
+            />
+          </div>
           <p v-if="message.content.startsWith('<strong>Forwarded')" v-html="message.content"></p>
           <p v-else>
             <strong>
@@ -40,31 +50,31 @@
               </ul>
             </div>
           </div>
-          <button
-            v-if="message.senderId !== userToken"
-            class="action-button heart-button"
-            :style="getActionButtonStyle(message)"
-            :class="{ 'has-reacted': (message.reactingUserNames || []).includes(userName) }"
-            :disabled="message.reactionLoading"
-            @click.stop="toggleReaction(message)"
-          >
-            ❤️
-          </button>
-          <button
-            class="action-button forward-button"
-            :style="getForwardButtonStyle(message)"
-            @click.stop="showForwardOptions(message.id)"
-          >
-            →
-          </button>
-          <button
-            v-if="message.senderId === userToken"
-            class="action-button delete-button"
-            :style="getActionButtonStyle(message)"
-            @click.stop="deleteMessage(message)"
-          >
-            ✖
-          </button>
+          <div class="action-buttons">
+            <button v-if="message.senderId !== userToken" class="action-button reply-button"
+              @click.stop="setReply(message)">
+              ↩
+            </button>
+            <button
+              v-if="message.senderId !== userToken"
+              class="action-button heart-button"
+              :class="{ 'has-reacted': (message.reactingUserNames || []).includes(userName) }"
+              :disabled="message.reactionLoading"
+              @click.stop="toggleReaction(message)"
+            >
+              ❤️
+            </button>
+            <button class="action-button forward-button" @click.stop="showForwardOptions(message.id)">
+              →
+            </button>
+            <button
+              v-if="message.senderId === userToken"
+              class="action-button delete-button"
+              @click.stop="deleteMessage(message)"
+            >
+              ✖
+            </button>
+          </div>
           <div v-if="messageOptions[message.id]?.showForwardMenu" class="forward-options" @click.stop>
             <select id="forward-select" class="forward-select" v-model="messageOptions[message.id].selectedConversationId">
               <option value="" disabled>Select conversation</option>
@@ -100,6 +110,15 @@
         </div>
       </div>
     </div>
+    <div v-if="replyToMessage" class="reply-preview-box">
+      <div class="reply-info">
+        <strong>Replying to {{ replyToMessage.senderName || 'Unknown' }}:</strong>
+        <span class="reply-text">{{ replyToMessage.content }}</span>
+        <img v-if="replyToMessage.attachment" :src="'data:image/jpeg;base64,' + replyToMessage.attachment" alt="Reply Attachment" class="reply-attachment-preview" />
+      </div>
+      <button class="cancel-reply-button" @click="cancelReply">✖</button>
+    </div>
+
     <div class="chat-input">
       <input type="file" ref="fileInput" style="display: none" accept="image/*, .gif" @change="handleFileSelect" />
       <button class="attach-button" @click="triggerFileInput">
@@ -130,7 +149,8 @@ export default {
       messageOptions: {},
       selectedFile: null,
       pollIntervalId: null,
-      firstLoad: true
+      firstLoad: true,
+      replyToMessage: null
     };
   },
   computed: {
@@ -153,6 +173,9 @@ export default {
       }
       const formData = new FormData();
       formData.append("content", this.message);
+      if (this.replyToMessage) {
+        formData.append("replyTo", this.replyToMessage.id);
+      }
       if (this.selectedFile) {
         formData.append("attachment", this.selectedFile);
       }
@@ -162,6 +185,7 @@ export default {
       this.message = "";
       this.selectedFile = null;
       this.$refs.fileInput.value = "";
+      this.replyToMessage = null;
       await this.fetchMessages();
       this.$nextTick(() => {
         this.forceScrollToBottom();
@@ -330,21 +354,11 @@ export default {
       alert("Message forwarded successfully!");
       this.closeForwardMenu(messageId);
     },
-    getForwardButtonStyle(message) {
-      return message.senderId === this.userToken
-        ? { left: '-40px', top: 'calc(50% - 20px)' }
-        : { right: '-40px', top: 'calc(50% - 20px)' };
+    setReply(message) {
+      this.replyToMessage = message;
     },
-    getActionButtonStyle(message) {
-      return message.senderId === this.userToken
-        ? { left: '-40px', top: 'calc(50% + 5px)' }
-        : { right: '-40px', top: 'calc(50% + 5px)' };
-    },
-    toggleReactionList(message) {
-      message.showReactedList = !message.showReactedList;
-    },
-    getUserName(userNameFromApi) {
-      return userNameFromApi;
+    cancelReply() {
+      this.replyToMessage = null;
     }
   },
   mounted() {
@@ -396,19 +410,16 @@ export default {
   border-bottom: 1px solid #ccc;
 }
 .message {
+  position: relative;
   max-width: 70%;
   margin-bottom: 10px;
-  position: relative;
   border-radius: 10px;
   padding: 10px;
+  background-color: #e0f2f1;
 }
 .message.self {
   margin-left: auto;
   background-color: #d1e7dd;
-}
-.message.other {
-  background-color: #e0f2f1;
-  position: relative;
 }
 .sender-thumbnail {
   position: absolute;
@@ -431,7 +442,6 @@ export default {
   margin: 0;
   color: #333;
   word-wrap: break-word;
-  word-break: break-word;
   white-space: pre-wrap;
 }
 .message small {
@@ -452,50 +462,22 @@ export default {
   height: 100%;
   object-fit: cover;
 }
-.chat-input {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  padding: 10px;
-  gap: 8px;
-}
-.attach-button {
-  background-color: #25d366;
-  color: white;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  margin-right: 10px;
-  font-size: 14px;
-  padding: 10px 15px;
-}
-.attach-button:hover {
-  background-color: #20b358;
-}
-.message-input {
-  flex: 1;
-  min-width: 200px;
-  padding: 12px;
-  border: 1px solid #dee2e6;
-  border-radius: 20px;
-  font-size: 14px;
-  outline: none;
-}
-.send-button {
-  background-color: #128c7e;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 20px;
-  margin-left: 10px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.send-button:hover {
-  background-color: #0f7c6a;
-}
-.action-button {
+
+.action-buttons {
   position: absolute;
+  top: 0;
+  right: -50px; 
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.message.self .action-buttons {
+  left: -50px;
+  right: auto;
+}
+
+.action-button {
+  position: static;
   width: 24px;
   height: 24px;
   border: 1px solid #aaa;
@@ -512,6 +494,10 @@ export default {
 }
 .action-button:hover {
   opacity: 1;
+}
+.reply-button {
+  font-size: 16px;
+  margin-right: 5px;
 }
 .forward-options {
   position: absolute;
@@ -595,6 +581,78 @@ export default {
 .reactors-list li {
   margin: 2px 0;
 }
+.reply-preview-box {
+  background-color: #f0f0f0;
+  border-left: 4px solid #128c7e;
+  padding: 8px;
+  margin: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.reply-info {
+  font-size: 0.9em;
+  color: #444;
+}
+
+.reply-attachment,
+.reply-attachment-preview {
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  margin-left: 10px;
+  border-radius: 4px;
+}
+.cancel-reply-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #888;
+}
+.chat-input {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 10px;
+  gap: 8px;
+}
+.attach-button {
+  background-color: #25d366;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-right: 10px;
+  font-size: 14px;
+  padding: 10px 15px;
+}
+.attach-button:hover {
+  background-color: #20b358;
+}
+.message-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+}
+.send-button {
+  background-color: #128c7e;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 20px;
+  margin-left: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.send-button:hover {
+  background-color: #0f7c6a;
+}
+
 @media (max-width: 600px) {
   .conversation-block p {
     -webkit-line-clamp: 3;

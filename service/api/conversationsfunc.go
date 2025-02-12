@@ -82,7 +82,6 @@ func (rt *_router) getConversation(
 		return
 	}
 
-	// Check membership
 	isMember, err := rt.db.IsUserInConversation(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to check conversation membership")
@@ -94,14 +93,11 @@ func (rt *_router) getConversation(
 		return
 	}
 
-	// Update the read receipts for all messages sent by others in this conversation
-	// (In group chats, this will update the current user’s receipt)
 	if err := rt.db.MarkMessagesAsRead(conversationID, userID); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to mark messages as read")
-		// Optionally continue even if marking fails
+
 	}
 
-	// Now get and return the conversation details (including messages)
 	conversation, err := rt.db.GetConversationDetails(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation details")
@@ -125,7 +121,6 @@ func (rt *_router) sendMessage(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-
 	conversationID := ps.ByName("conversationId")
 	if conversationID == "" {
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
@@ -137,13 +132,15 @@ func (rt *_router) sendMessage(
 		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
 		return
 	}
+
 	content := r.FormValue("content")
+
+	replyTo := r.FormValue("replyTo")
 
 	var attachment []byte
 	file, header, err := r.FormFile("attachment")
 	if err == nil {
 		defer file.Close()
-
 		allowedTypes := map[string]bool{
 			"image/jpeg": true,
 			"image/png":  true,
@@ -153,7 +150,6 @@ func (rt *_router) sendMessage(
 			http.Error(w, "Invalid file type. Only images and GIFs are allowed", http.StatusBadRequest)
 			return
 		}
-
 		attachment, err = io.ReadAll(file)
 		if err != nil {
 			ctx.Logger.WithError(err).Error("Failed to read attachment")
@@ -184,13 +180,7 @@ func (rt *_router) sendMessage(
 		return
 	}
 
-	message, err := rt.db.SaveMessage(
-		conversationID,
-		senderID,
-		messageID,
-		content,
-		attachment,
-	)
+	message, err := rt.db.SaveMessage(conversationID, senderID, messageID, content, attachment, replyTo)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to save message")
 		if errors.Is(err, database.ErrConversationDoesNotExist) {
@@ -323,6 +313,7 @@ func (rt *_router) forwardMessage(
 		return
 	}
 	newContent := "<strong>Forwarded from " + req.ForwarderName + ":</strong> " + originalMessage.Content
+
 	newMessage := database.Message{
 		Id:             newMessageID,
 		ConversationId: req.TargetConversationID,
@@ -332,19 +323,20 @@ func (rt *_router) forwardMessage(
 		Timestamp:      time.Now().Format(time.RFC3339),
 		Attachment:     originalMessage.Attachment,
 	}
+
 	if _, err := rt.db.SaveMessage(
 		newMessage.ConversationId,
 		newMessage.SenderId,
 		newMessage.Id,
 		newMessage.Content,
 		newMessage.Attachment,
+		"",
 	); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to save forwarded message")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert delivery receipts for the new forwarded message.
 	members, err := rt.db.GetConversationMembers(req.TargetConversationID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation members for forwarded message")
@@ -357,6 +349,5 @@ func (rt *_router) forwardMessage(
 			}
 		}
 	}
-
 	w.WriteHeader(http.StatusOK)
 }

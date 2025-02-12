@@ -48,6 +48,10 @@ type Message struct {
 	ReactionCount     int      `json:"reactionCount"`
 	ReactingUserNames []string `json:"reactingUserNames"`
 	Status            string   `json:"status"`
+	ReplyTo           string   `json:"replyTo,omitempty"`
+	ReplyContent      string   `json:"replyContent,omitempty"`
+	ReplySenderName   string   `json:"replySenderName,omitempty"`
+	ReplyAttachment   []byte   `json:"replyAttachment,omitempty"`
 }
 
 type Comment struct {
@@ -74,7 +78,7 @@ type AppDatabase interface {
 	SearchUsersByName(username string) ([]User, error)
 	GetDirectConversation(senderID, recipientID string) (string, error)
 	CreateDirectConversation(conversationID, senderID, recipientID string) error
-	SaveMessage(conversationID, senderID, messageID, content string, attachment []byte) (Message, error)
+	SaveMessage(conversationID, senderID, messageID, content string, attachment []byte, replyTo string) (Message, error)
 	InsertDeliveryReceipt(messageID, userID, deliveredAt string) error
 	IsUserInConversation(conversationID, userID string) (bool, error)
 	GetConversationDetails(conversationID, currentUserID string) (Conversation, error)
@@ -145,6 +149,7 @@ func New(db *sql.DB) (AppDatabase, error) {
 			content TEXT NOT NULL,
 			timestamp TEXT NOT NULL,
 			attachment BLOB,
+			replyTo TEXT,  -- new column to store the ID of the message being replied to (nullable)
 			FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE
 		);`

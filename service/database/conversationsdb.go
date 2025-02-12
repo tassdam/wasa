@@ -55,7 +55,7 @@ func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipien
 }
 
 func (db *appdbimpl) SaveMessage(
-	conversationID, senderID, messageID, content string, attachment []byte,
+	conversationID, senderID, messageID, content string, attachment []byte, replyTo string,
 ) (Message, error) {
 	var conversationExists bool
 	err := db.c.QueryRow(`SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?)`, conversationID).Scan(&conversationExists)
@@ -68,9 +68,9 @@ func (db *appdbimpl) SaveMessage(
 
 	timestamp := time.Now().Format(time.RFC3339)
 	_, err = db.c.Exec(`
-		INSERT INTO messages (id, conversationId, senderId, content, timestamp, attachment)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, messageID, conversationID, senderID, content, timestamp, attachment)
+        INSERT INTO messages (id, conversationId, senderId, content, timestamp, attachment, replyTo)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, messageID, conversationID, senderID, content, timestamp, attachment, replyTo)
 	if err != nil {
 		return Message{}, fmt.Errorf("error saving message: %w", err)
 	}
@@ -82,6 +82,7 @@ func (db *appdbimpl) SaveMessage(
 		Content:        content,
 		Timestamp:      timestamp,
 		Attachment:     attachment,
+		ReplyTo:        replyTo,
 	}, nil
 }
 
@@ -212,16 +213,22 @@ SELECT
     m.content, 
     m.timestamp, 
     m.attachment,
+    m.replyTo,
     u.name AS senderName,
     u.photo AS senderPhoto,
     ((SELECT COUNT(*) FROM conversation_members WHERE conversationId = m.conversationId) - 1) AS totalRecipients,
     (SELECT COUNT(*) FROM read_receipts WHERE messageId = m.id AND readAt IS NOT NULL) AS readCount,
     COUNT(c.id) AS reaction_count,
-    GROUP_CONCAT(DISTINCT u2.name) AS reacting_user_names
+    GROUP_CONCAT(DISTINCT u2.name) AS reacting_user_names,
+    IFNULL(r.content, '') AS replyContent,
+    IFNULL(ru.name, '') AS replySenderName,
+    r.attachment AS replyAttachment
 FROM messages m
 JOIN users u ON m.senderId = u.id
 LEFT JOIN comments c ON m.id = c.messageId
 LEFT JOIN users u2 ON c.authorId = u2.id
+LEFT JOIN messages r ON m.replyTo = r.id
+LEFT JOIN users ru ON r.senderId = ru.id
 WHERE m.conversationId = ?
 GROUP BY m.id
 ORDER BY m.timestamp ASC;
@@ -246,12 +253,16 @@ ORDER BY m.timestamp ASC;
 			&msg.Content,
 			&msg.Timestamp,
 			&msg.Attachment,
+			&msg.ReplyTo,
 			&msg.SenderName,
 			&senderPhoto,
 			&totalRecipients,
 			&readCount,
 			&reactionCount,
 			&reactingUserNames,
+			&msg.ReplyContent,
+			&msg.ReplySenderName,
+			&msg.ReplyAttachment,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning message row: %w", err)
