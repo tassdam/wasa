@@ -123,7 +123,7 @@
           const response = await axios.get(`/search`, {
             params: { username: this.query },
           });
-          this.users = response.data;
+          this.users = response.data.filter(user => user.id !== localStorage.getItem("token"));
           this.lastQuery = this.query;
           this.showResults = true;
         } catch (err) {
