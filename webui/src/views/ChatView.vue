@@ -6,7 +6,6 @@
       </div>
       <h3>{{ convName }}</h3>
     </div>
-
     <div class="chat-messages" ref="chatMessages">
       <p v-if="messages.length === 0">No messages yet...</p>
       <div
@@ -51,8 +50,7 @@
             </div>
           </div>
           <div class="action-buttons">
-            <button v-if="message.senderId !== userToken" class="action-button reply-button"
-              @click.stop="setReply(message)">
+            <button v-if="message.senderId !== userToken" class="action-button reply-button" @click.stop="setReply(message)">
               ↩
             </button>
             <button
@@ -67,11 +65,7 @@
             <button class="action-button forward-button" @click.stop="showForwardOptions(message.id)">
               →
             </button>
-            <button
-              v-if="message.senderId === userToken"
-              class="action-button delete-button"
-              @click.stop="deleteMessage(message)"
-            >
+            <button v-if="message.senderId === userToken" class="action-button delete-button" @click.stop="deleteMessage(message)">
               ✖
             </button>
           </div>
@@ -105,7 +99,7 @@
             </div>
           </div>
         </div>
-        <div class="message-status" v-if="message.status">
+        <div class="message-status" v-if="message.status && message.senderId !== userToken">
           {{ message.status }}
         </div>
       </div>
@@ -118,7 +112,6 @@
       </div>
       <button class="cancel-reply-button" @click="cancelReply">✖</button>
     </div>
-
     <div class="chat-input">
       <input type="file" ref="fileInput" style="display: none" accept="image/*, .gif" @change="handleFileSelect" />
       <button class="attach-button" @click="triggerFileInput">
@@ -462,11 +455,10 @@ export default {
   height: 100%;
   object-fit: cover;
 }
-
 .action-buttons {
   position: absolute;
   top: 0;
-  right: -50px; 
+  right: -50px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -475,11 +467,10 @@ export default {
   left: -50px;
   right: auto;
 }
-
 .action-button {
   position: static;
-  width: 24px;
-  height: 24px;
+  width: 17px;
+  height: 17px;
   border: 1px solid #aaa;
   border-radius: 50%;
   background-color: white;
@@ -489,14 +480,14 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 10px;
   padding: 0;
 }
 .action-button:hover {
   opacity: 1;
 }
 .reply-button {
-  font-size: 16px;
+  font-size: 10px;
   margin-right: 5px;
 }
 .forward-options {
@@ -594,11 +585,10 @@ export default {
   font-size: 0.9em;
   color: #444;
 }
-
 .reply-attachment,
 .reply-attachment-preview {
-  width: 30px;
-  height: 30px;
+  width: 21px;
+  height: 21px;
   object-fit: cover;
   margin-left: 10px;
   border-radius: 4px;
@@ -652,7 +642,6 @@ export default {
 .send-button:hover {
   background-color: #0f7c6a;
 }
-
 @media (max-width: 600px) {
   .conversation-block p {
     -webkit-line-clamp: 3;
