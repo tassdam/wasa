@@ -250,7 +250,7 @@
   
   .results-section {
     margin-top: 20px;
-    max-height: 300px; /* Adjust as needed */
+    max-height: 300px; 
     overflow-y: auto;
     border: 1px solid #ccc;
     border-radius: 5px;

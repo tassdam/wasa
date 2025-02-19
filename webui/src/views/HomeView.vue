@@ -40,9 +40,7 @@
                    :src="'data:image/*;base64,' + conv.lastMessage.attachment"
                    class="attachment-thumbnail"
                    alt="Attachment">
-              <!-- If the message is forwarded, render its content as HTML -->
               <span v-if="isForwarded(conv.lastMessage)" v-html="getFormattedMessage(conv.lastMessage)"></span>
-              <!-- Otherwise, render as plain text -->
               <span v-else>{{ getFormattedMessage(conv.lastMessage) }}</span>
               at {{ new Date(conv.lastMessage.timestamp).toLocaleString() }}
             </p>
@@ -110,18 +108,13 @@ export default {
       }
       return text.substring(0, lastSpaceIndex) + clamp;
     },
-    // Returns true if the message content contains the forwarded prefix.
     isForwarded(message) {
       return message.content.includes("<strong>Forwarded from");
     },
-    // Returns formatted message content. If forwarded, we assume it already has HTML formatting.
     getFormattedMessage(message) {
       if (this.isForwarded(message)) {
-        // Optionally, you might want to truncate only the non-forwarded part;
-        // for now we return the whole HTML content.
         return message.content;
       }
-      // For non-forwarded messages, return truncated plain text.
       return this.truncateText(message.content);
     },
     refresh() {
@@ -161,20 +154,20 @@ export default {
 }
 
 .conversation-block {
-  background-color: #f0f0f0; /* Light grey background */
+  background-color: #f0f0f0; 
   padding: 15px;
   margin-bottom: 10px;
   cursor: pointer;
   border-radius: 5px;
-  display: flex; /* Enable flexbox */
-  align-items: center; /* Center items vertically */
-  gap: 15px; /* Space between photo and text */
+  display: flex;
+  align-items: center; 
+  gap: 15px; 
 }
 
 .conversation-photo {
-  flex-shrink: 0; /* Prevent photo from shrinking */
-  width: 75px; /* Match profile picture width */
-  height: 75px; /* Match profile picture height */
+  flex-shrink: 0; 
+  width: 75px; 
+  height: 75px; 
 }
 
 .profile-picture {

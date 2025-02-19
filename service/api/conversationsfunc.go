@@ -18,7 +18,6 @@ func (rt *_router) startConversation(
 	ps httprouter.Params,
 	ctx reqcontext.RequestContext,
 ) {
-
 	var req struct {
 		SenderID    string `json:"senderId"`
 		RecipientID string `json:"recipientId"`
@@ -27,19 +26,16 @@ func (rt *_router) startConversation(
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
 	if req.SenderID == "" || req.RecipientID == "" {
 		http.Error(w, "Missing senderId or recipientId", http.StatusBadRequest)
 		return
 	}
-
 	conversationID, err := rt.db.GetDirectConversation(req.SenderID, req.RecipientID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to check conversation existence")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	if conversationID == "" {
 		conversationID, err = generateNewID()
 		if err != nil {
@@ -47,7 +43,6 @@ func (rt *_router) startConversation(
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-
 		err = rt.db.CreateDirectConversation(conversationID, req.SenderID, req.RecipientID)
 		if err != nil {
 			ctx.Logger.WithError(err).Error("Failed to create new conversation")
@@ -55,7 +50,6 @@ func (rt *_router) startConversation(
 			return
 		}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"conversationId": conversationID,
@@ -75,13 +69,11 @@ func (rt *_router) getConversation(
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
 		return
 	}
-
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	isMember, err := rt.db.IsUserInConversation(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to check conversation membership")
@@ -92,12 +84,9 @@ func (rt *_router) getConversation(
 		http.Error(w, "Forbidden: You are not a member of this conversation", http.StatusForbidden)
 		return
 	}
-
 	if err := rt.db.MarkMessagesAsRead(conversationID, userID); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to mark messages as read")
-
 	}
-
 	conversation, err := rt.db.GetConversationDetails(conversationID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation details")
@@ -108,7 +97,6 @@ func (rt *_router) getConversation(
 		}
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(conversation); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode conversation details")
@@ -126,17 +114,13 @@ func (rt *_router) sendMessage(
 		http.Error(w, "Missing conversationId", http.StatusBadRequest)
 		return
 	}
-
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
 		return
 	}
-
 	content := r.FormValue("content")
-
 	replyTo := r.FormValue("replyTo")
-
 	var attachment []byte
 	file, header, err := r.FormFile("attachment")
 	if err == nil {
@@ -161,25 +145,21 @@ func (rt *_router) sendMessage(
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-
 	if content == "" && len(attachment) == 0 {
 		http.Error(w, "Message content or attachment is required", http.StatusBadRequest)
 		return
 	}
-
 	senderID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	messageID, err := generateNewID()
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to generate message ID")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	message, err := rt.db.SaveMessage(conversationID, senderID, messageID, content, attachment, replyTo)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to save message")
@@ -190,7 +170,6 @@ func (rt *_router) sendMessage(
 		}
 		return
 	}
-
 	members, err := rt.db.GetConversationMembers(conversationID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation members")
@@ -204,7 +183,6 @@ func (rt *_router) sendMessage(
 			}
 		}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(message); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode response")
@@ -222,14 +200,12 @@ func (rt *_router) getMyConversations(
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	conversations, err := rt.db.GetMyConversations(userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch user's conversations")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(conversations); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode conversations")
@@ -244,13 +220,11 @@ func (rt *_router) deleteMessage(
 ) {
 	conversationID := ps.ByName("conversationId")
 	messageID := ps.ByName("messageId")
-
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	if ok, err := rt.db.IsUserInConversation(conversationID, userID); !ok {
 		if err != nil {
 			ctx.Logger.WithError(err).Error("Failed to check conversation membership")
@@ -273,7 +247,6 @@ func (rt *_router) deleteMessage(
 		}
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -313,7 +286,6 @@ func (rt *_router) forwardMessage(
 		return
 	}
 	newContent := "<strong>Forwarded from " + req.ForwarderName + ":</strong> " + originalMessage.Content
-
 	newMessage := database.Message{
 		Id:             newMessageID,
 		ConversationId: req.TargetConversationID,
@@ -323,7 +295,6 @@ func (rt *_router) forwardMessage(
 		Timestamp:      time.Now().Format(time.RFC3339),
 		Attachment:     originalMessage.Attachment,
 	}
-
 	if _, err := rt.db.SaveMessage(
 		newMessage.ConversationId,
 		newMessage.SenderId,
@@ -336,7 +307,6 @@ func (rt *_router) forwardMessage(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	members, err := rt.db.GetConversationMembers(req.TargetConversationID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch conversation members for forwarded message")

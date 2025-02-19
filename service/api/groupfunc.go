@@ -22,45 +22,38 @@ func (rt *_router) createGroup(
 		http.Error(w, "Failed to parse form data", http.StatusBadRequest)
 		return
 	}
-
 	name := r.FormValue("name")
 	membersStr := r.FormValue("members")
-
 	var members []string
 	err = json.Unmarshal([]byte(membersStr), &members)
 	if err != nil {
 		http.Error(w, "Invalid members format", http.StatusBadRequest)
 		return
 	}
-
 	file, _, err := r.FormFile("image")
 	if err != nil {
 		http.Error(w, "No image file provided", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
-
 	photo, err := io.ReadAll(file)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to read image file")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	conversationID, err := generateNewID()
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to generate conversation ID")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	err = rt.db.CreateGroupConversation(conversationID, members, name, photo)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to create new conversation")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{
 		"conversationId": conversationID,
@@ -80,14 +73,12 @@ func (rt *_router) getMyGroups(
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	conversations, err := rt.db.GetMyGroups(userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to fetch user's conversations")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(conversations); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode conversations")
@@ -101,13 +92,11 @@ func (rt *_router) getGroup(
 	ctx reqcontext.RequestContext,
 ) {
 	groupID := ps.ByName("groupId")
-
 	_, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	group, dbErr := rt.db.GetGroupInfo(groupID)
 	if dbErr != nil {
 		if errors.Is(dbErr, database.ErrGroupDoesNotExist) {
@@ -118,13 +107,11 @@ func (rt *_router) getGroup(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	response := map[string]interface{}{
 		"id":      group.Id,
 		"name":    group.Name,
 		"members": group.Members,
 	}
-
 	if group.ConversationPhoto.Valid {
 		response["groupPhoto"] = group.ConversationPhoto.String
 	}
@@ -151,11 +138,8 @@ func (rt *_router) setGroupName(
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	groupID := ps.ByName("groupId")
-
 	var req UpdateGroupRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -164,9 +148,7 @@ func (rt *_router) setGroupName(
 		http.Error(w, "Invalid group name length", http.StatusBadRequest)
 		return
 	}
-
 	dbErr := rt.db.UpdateGroupName(groupID, req.Name)
-
 	if errors.Is(dbErr, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
@@ -220,9 +202,7 @@ func (rt *_router) setGroupPhoto(
 		http.Error(w, "Invalid file type. Only JPEG and PNG are supported.", http.StatusUnsupportedMediaType)
 		return
 	}
-
 	err = rt.db.UpdateGroupPhoto(groupID, photoData)
-
 	if errors.Is(err, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
@@ -248,32 +228,27 @@ func (rt *_router) leaveGroup(
 	ctx reqcontext.RequestContext,
 ) {
 	groupID := ps.ByName("groupId")
-
 	userID, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	err = rt.db.LeaveGroup(groupID, userID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to leave group")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 }
 
 func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	groupID := ps.ByName("groupId")
-
 	_, err := rt.getAuthenticatedUserID(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	var request struct {
 		UserID string `json:"userId"`
 	}
@@ -281,13 +256,11 @@ func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprou
 		http.Error(w, "Invalid request format", http.StatusBadRequest)
 		return
 	}
-
 	err = rt.db.AddUserToGroup(groupID, request.UserID)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to add user to group")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-
 	w.WriteHeader(http.StatusNoContent)
 }

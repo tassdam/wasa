@@ -11,8 +11,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// WebAPIConfiguration describes the web API configuration. This structure is automatically parsed by
-// loadConfiguration and values from flags, environment variable or configuration file will be loaded.
 type WebAPIConfiguration struct {
 	Config struct {
 		Path string `conf:"default:/conf/config.yml"`
@@ -30,28 +28,19 @@ type WebAPIConfiguration struct {
 	}
 }
 
-// loadConfiguration creates a WebAPIConfiguration starting from flags, environment variables and configuration file.
-// It works by loading environment variables first, then update the config using command line flags, finally loading the
-// configuration file (specified in WebAPIConfiguration.Config.Path).
-// So, CLI parameters will override the environment, and configuration file will override everything.
-// Note that the configuration file can be specified only via CLI or environment variable.
 func loadConfiguration() (WebAPIConfiguration, error) {
 	var cfg WebAPIConfiguration
-
-	// Try to load configuration from environment variables and command line switches
 	if err := conf.Parse(os.Args[1:], "CFG", &cfg); err != nil {
 		if errors.Is(err, conf.ErrHelpWanted) {
 			usage, err := conf.Usage("CFG", &cfg)
 			if err != nil {
 				return cfg, fmt.Errorf("generating config usage: %w", err)
 			}
-			fmt.Println(usage) //nolint:forbidigo
+			fmt.Println(usage)
 			return cfg, conf.ErrHelpWanted
 		}
 		return cfg, fmt.Errorf("parsing config: %w", err)
 	}
-
-	// Override values from YAML if specified and if it exists (useful in k8s/compose)
 	fp, err := os.Open(cfg.Config.Path)
 	if err != nil && !os.IsNotExist(err) {
 		return cfg, fmt.Errorf("can't read the config file, while it exists: %w", err)
@@ -66,6 +55,5 @@ func loadConfiguration() (WebAPIConfiguration, error) {
 		}
 		_ = fp.Close()
 	}
-
 	return cfg, nil
 }

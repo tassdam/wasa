@@ -66,11 +66,8 @@ type ReadReceipt struct {
 	ReadAt      *string `json:"readAt,omitempty"`
 }
 
-// AppDatabase is the high-level interface for the DB operations.
-// Actual CRUD methods will be defined in other files like user-db.go, message-db.go, etc.
 type AppDatabase interface {
 	Ping() error
-	// ... other methods ...
 	GetUserByName(name string) (User, error)
 	CreateUser(u User) (User, error)
 	UpdateUserName(userId string, newName string) (User, error)
@@ -100,32 +97,26 @@ type AppDatabase interface {
 	MarkMessagesAsRead(conversationID, userID string) error
 }
 
-// appdbimpl is the internal implementation of AppDatabase.
 type appdbimpl struct {
 	c *sql.DB
 }
 
-// New initializes the database and creates tables if they don’t exist, similar to the student’s code.
 func New(db *sql.DB) (AppDatabase, error) {
 	if db == nil {
 		return nil, errors.New("database is required when building an AppDatabase")
 	}
-
 	_, err := db.Exec("PRAGMA foreign_keys = ON")
 	if err != nil {
 		return nil, err
 	}
-
 	var tableName string
 	err = db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='users';`).Scan(&tableName)
 	if errors.Is(err, sql.ErrNoRows) {
-
 		usersTable := `CREATE TABLE users (
 			id TEXT NOT NULL PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
 			photo BLOB
 		);`
-
 		conversationsTable := `CREATE TABLE conversations (
 			id TEXT NOT NULL PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -133,7 +124,6 @@ func New(db *sql.DB) (AppDatabase, error) {
 			created_at TEXT NOT NULL,
 			conversationPhoto BLOB
 		);`
-
 		conversationMembersTable := `CREATE TABLE conversation_members (
 			conversationId TEXT NOT NULL,
 			userId TEXT NOT NULL,
@@ -141,7 +131,6 @@ func New(db *sql.DB) (AppDatabase, error) {
 			FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
 			PRIMARY KEY(conversationId, userId)
 		);`
-
 		messagesTable := `CREATE TABLE messages (
 			id TEXT NOT NULL PRIMARY KEY,
 			conversationId TEXT NOT NULL,
@@ -149,11 +138,10 @@ func New(db *sql.DB) (AppDatabase, error) {
 			content TEXT NOT NULL,
 			timestamp TEXT NOT NULL,
 			attachment BLOB,
-			replyTo TEXT,  -- new column to store the ID of the message being replied to (nullable)
+			replyTo TEXT,  
 			FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE
 		);`
-
 		commentsTable := `CREATE TABLE comments (
 			id TEXT NOT NULL PRIMARY KEY,
 			messageId TEXT NOT NULL,
@@ -162,17 +150,15 @@ func New(db *sql.DB) (AppDatabase, error) {
 			FOREIGN KEY (messageId) REFERENCES messages(id) ON DELETE CASCADE,
 			FOREIGN KEY (authorId) REFERENCES users(id) ON DELETE CASCADE
 		);`
-
 		readReceiptsTable := `CREATE TABLE read_receipts (
 			messageId TEXT NOT NULL,
 			userId TEXT NOT NULL,
 			deliveredAt TEXT NOT NULL,
-			readAt TEXT, -- Nullable
+			readAt TEXT, 
 			PRIMARY KEY (messageId, userId),
 			FOREIGN KEY (messageId) REFERENCES messages(id) ON DELETE CASCADE,
 			FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 		);`
-
 		creationQueries := []string{
 			usersTable,
 			conversationsTable,
@@ -190,11 +176,9 @@ func New(db *sql.DB) (AppDatabase, error) {
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-
 	return &appdbimpl{c: db}, nil
 }
 
-// Ping checks the connection to the database.
 func (db *appdbimpl) Ping() error {
 	return db.c.Ping()
 }

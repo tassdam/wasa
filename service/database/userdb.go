@@ -52,7 +52,6 @@ func (db *appdbimpl) UpdateUserName(userId, newName string) (User, error) {
 	} else if affected == 0 {
 		return User{}, ErrUserDoesNotExist
 	}
-
 	return db.GetUserById(userId)
 }
 
@@ -69,7 +68,6 @@ func (db *appdbimpl) UpdateUserPhoto(userID string, photo []byte) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -84,7 +82,6 @@ func (db *appdbimpl) SearchUsersByName(username string) ([]User, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
 	for rows.Next() {
 		var user User
 		err := rows.Scan(&user.Id, &user.Name, &user.Photo)
@@ -96,7 +93,6 @@ func (db *appdbimpl) SearchUsersByName(username string) ([]User, error) {
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating user results: %w", err)
 	}
-
 	return users, nil
 }
 

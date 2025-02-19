@@ -16,13 +16,12 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	if len(req.Name) < 3 || len(req.Name) > 160 {
+	if len(req.Name) < 3 || len(req.Name) > 16 {
 		http.Error(w, "Invalid username length", http.StatusBadRequest)
 		return
 	}
@@ -32,7 +31,6 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		http.Error(w, "Invalid photo data", http.StatusBadRequest)
 		return
 	}
-
 	user, err := rt.db.GetUserByName(req.Name)
 	if errors.Is(err, database.ErrUserDoesNotExist) {
 		newID, genErr := generateNewID()
@@ -58,7 +56,6 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	resp := LoginResponse{
 		Identifier: user.Id,
 	}

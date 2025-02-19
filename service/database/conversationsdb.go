@@ -21,19 +21,16 @@ func (db *appdbimpl) GetDirectConversation(senderID, recipientID string) (string
 		      SELECT conversationId FROM conversation_members WHERE userId = ?
 		  )
 	`, senderID, recipientID).Scan(&conversationID)
-
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
 	if err != nil {
 		return "", fmt.Errorf("error checking conversation: %w", err)
 	}
-
 	return conversationID, nil
 }
 
 func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipientID string) error {
-
 	_, err := db.c.Exec(`
 		INSERT INTO conversations (id, name, type, created_at, conversationPhoto)
 		VALUES (?, '', 'direct', ?, '')
@@ -41,7 +38,6 @@ func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipien
 	if err != nil {
 		return fmt.Errorf("error creating new conversation: %w", err)
 	}
-
 	_, err = db.c.Exec(`
 		INSERT INTO conversation_members (conversationId, userId)
 		VALUES (?, ?), (?, ?)
@@ -50,7 +46,6 @@ func (db *appdbimpl) CreateDirectConversation(conversationID, senderID, recipien
 	if err != nil {
 		return fmt.Errorf("error adding members to conversation_members: %w", err)
 	}
-
 	return nil
 }
 
@@ -65,7 +60,6 @@ func (db *appdbimpl) SaveMessage(
 	if !conversationExists {
 		return Message{}, ErrConversationDoesNotExist
 	}
-
 	timestamp := time.Now().Format(time.RFC3339)
 	_, err = db.c.Exec(`
         INSERT INTO messages (id, conversationId, senderId, content, timestamp, attachment, replyTo)
@@ -74,7 +68,6 @@ func (db *appdbimpl) SaveMessage(
 	if err != nil {
 		return Message{}, fmt.Errorf("error saving message: %w", err)
 	}
-
 	return Message{
 		Id:             messageID,
 		ConversationId: conversationID,
@@ -96,7 +89,6 @@ func (db *appdbimpl) GetConversationMembers(conversationID string) ([]string, er
 		return nil, fmt.Errorf("error fetching conversation members: %w", err)
 	}
 	defer rows.Close()
-
 	var members []string
 	for rows.Next() {
 		var userID string
@@ -131,7 +123,6 @@ func (db *appdbimpl) IsUserInConversation(conversationID, userID string) (bool, 
 			WHERE conversationId = ? AND userId = ?
 		)
 	`, conversationID, userID).Scan(&exists)
-
 	if err != nil {
 		return false, fmt.Errorf("error checking user membership: %w", err)
 	}
@@ -141,7 +132,6 @@ func (db *appdbimpl) IsUserInConversation(conversationID, userID string) (bool, 
 func (db *appdbimpl) GetConversationDetails(conversationID, currentUserID string) (Conversation, error) {
 	var conversation Conversation
 	var photoData []byte
-
 	err := db.c.QueryRow(`
 		SELECT id, name, type, created_at, conversationPhoto
 		FROM conversations
@@ -159,7 +149,6 @@ func (db *appdbimpl) GetConversationDetails(conversationID, currentUserID string
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation details: %w", err)
 	}
-
 	if len(photoData) > 0 {
 		conversation.ConversationPhoto = sql.NullString{
 			String: base64.StdEncoding.EncodeToString(photoData),
@@ -168,13 +157,11 @@ func (db *appdbimpl) GetConversationDetails(conversationID, currentUserID string
 	} else {
 		conversation.ConversationPhoto = sql.NullString{Valid: false}
 	}
-
 	members, err := db.GetConversationMembers(conversationID)
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation members: %w", err)
 	}
 	conversation.Members = members
-
 	if conversation.Type == "direct" {
 		var otherUserID string
 		for _, m := range members {
@@ -194,13 +181,11 @@ func (db *appdbimpl) GetConversationDetails(conversationID, currentUserID string
 			}
 		}
 	}
-
 	messages, err := db.GetMessagesForConversation(conversationID)
 	if err != nil {
 		return Conversation{}, fmt.Errorf("error fetching conversation messages: %w", err)
 	}
 	conversation.Messages = messages
-
 	return conversation, nil
 }
 
@@ -238,14 +223,12 @@ ORDER BY m.timestamp ASC;
 		return nil, fmt.Errorf("error fetching messages: %w", err)
 	}
 	defer rows.Close()
-
 	var messages []Message
 	for rows.Next() {
 		var msg Message
 		var senderPhoto []byte
 		var totalRecipients, readCount, reactionCount int
 		var reactingUserNames sql.NullString
-
 		err := rows.Scan(
 			&msg.Id,
 			&msg.ConversationId,
@@ -281,14 +264,11 @@ ORDER BY m.timestamp ASC;
 		} else {
 			msg.Status = "✓"
 		}
-
 		messages = append(messages, msg)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating message rows: %w", err)
 	}
-
 	return messages, nil
 }
 
@@ -331,15 +311,12 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 	WHERE cm.userId = ?
 	ORDER BY last_message_timestamp DESC NULLS LAST;
     `
-
 	rows, err := db.c.Query(query, userID, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching conversations: %w", err)
 	}
 	defer rows.Close()
-
 	var conversations []Conversation
-
 	for rows.Next() {
 		var conv Conversation
 		var (
@@ -350,7 +327,6 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 			lastMessageAttachment []byte
 			convPhoto             sql.NullString
 		)
-
 		err := rows.Scan(
 			&conv.Id,
 			&conv.Name,
@@ -366,12 +342,10 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error scanning conversation: %w", err)
 		}
-
 		if convPhoto.Valid {
 			conv.ConversationPhoto.String = base64.StdEncoding.EncodeToString([]byte(convPhoto.String))
 			conv.ConversationPhoto.Valid = true
 		}
-
 		if lastMessageID.Valid {
 			conv.LastMessage = &Message{
 				Id:         lastMessageID.String,
@@ -381,20 +355,16 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 				Attachment: lastMessageAttachment,
 			}
 		}
-
 		members, err := db.GetConversationMembers(conv.Id)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching conversation members: %w", err)
 		}
 		conv.Members = members
-
 		conversations = append(conversations, conv)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
-
 	return conversations, nil
 }
 
@@ -414,7 +384,6 @@ func (db *appdbimpl) DeleteMessage(conversationID, messageID, userID string) err
 	if senderID != userID {
 		return ErrUnauthorizedToDeleteMessage
 	}
-
 	_, err = db.c.Exec(`
 		DELETE FROM messages
 		WHERE conversationId = ? AND id = ?
@@ -422,7 +391,6 @@ func (db *appdbimpl) DeleteMessage(conversationID, messageID, userID string) err
 	if err != nil {
 		return fmt.Errorf("error deleting message: %w", err)
 	}
-
 	return nil
 }
 
@@ -464,8 +432,6 @@ func (db *appdbimpl) GetMessage(messageID, userID string) (Message, error) {
 }
 
 func (db *appdbimpl) MarkMessagesAsRead(conversationID, userID string) error {
-	// Update the read_receipts table so that, for all messages in the conversation,
-	// if the current user has a receipt record that is not yet marked as read, set it.
 	_, err := db.c.Exec(`
         UPDATE read_receipts
         SET readAt = CURRENT_TIMESTAMP

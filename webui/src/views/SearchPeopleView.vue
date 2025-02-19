@@ -34,7 +34,7 @@
         <h2 class="results-title">Results:</h2>
         <template v-if="users.length > 0">
           <div v-for="user in users" :key="user.id" class="user-card">
-            <h5 @click="viewProfile(user.username)" class="user-name">
+            <h5 class="user-name">
               @{{ user.name }}
             </h5>
             <button
@@ -98,9 +98,6 @@ export default {
       } finally {
         this.loading = false;
       }
-    },
-    viewProfile(username) {
-      this.$router.push(`/profile/${username}`);
     },
     navigateToConversation(recipientId, recipientName) {
       localStorage.setItem("conversationName", recipientName);

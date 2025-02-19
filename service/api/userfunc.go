@@ -94,7 +94,6 @@ func (rt *_router) setMyPhoto(
 		http.Error(w, "Invalid file type. Only JPEG and PNG are supported.", http.StatusUnsupportedMediaType)
 		return
 	}
-
 	err = rt.db.UpdateUserPhoto(userID, photoData)
 	if errors.Is(err, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -137,14 +136,12 @@ func (rt *_router) searchUsers(
 		http.Error(w, "Missing 'username' query parameter", http.StatusBadRequest)
 		return
 	}
-
 	users, err := rt.db.SearchUsersByName(query)
 	if err != nil {
 		ctx.Logger.WithError(err).Error("Failed to search users")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	if len(users) == 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -154,7 +151,6 @@ func (rt *_router) searchUsers(
 		}
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(users); err != nil {
@@ -174,7 +170,6 @@ func (rt *_router) getMyPhoto(
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	user, dbErr := rt.db.GetUsersPhoto(userID)
 	if errors.Is(dbErr, database.ErrUserDoesNotExist) {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -184,16 +179,13 @@ func (rt *_router) getMyPhoto(
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	response := map[string]interface{}{
 		"name":  user.Name,
 		"photo": nil,
 	}
-
 	if user.Photo != nil {
 		response["photo"] = base64.StdEncoding.EncodeToString(user.Photo)
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		ctx.Logger.WithError(err).Error("Failed to encode user response")
