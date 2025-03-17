@@ -13,7 +13,7 @@ func main() {
 	res, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/liveness", *port))
 	// you have to use this line here (for the 13th line) - res, err := http.Get(fmt.Sprintf("http://localhost:%d/liveness", *port))
 	// the reason why i use another line is because i am deploying the backend on railway,
-	// i think the grader that prof uses particularly needs that line.
+	// i think the grader that prof uses particularly needs that line. test
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
