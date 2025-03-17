@@ -4,3 +4,4 @@ buildCmd = "go build -o out ./cmd/webapi"
 
 [start]
 cmd = "./out"
+healthcheckPath = "/liveness"
