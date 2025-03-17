@@ -12,7 +12,7 @@ export default defineConfig(({ command, mode, ssrBuild }) => {
     },
   }
   ret.define = {
-    "__API_URL__": JSON.stringify(process.env.VITE_API_URL || "http://localhost:3000")
+    "__API_URL__": JSON.stringify(process.env.VITE_API_URL || "http://localhost:3000") // use the profs line
   }
   return ret;
 })
