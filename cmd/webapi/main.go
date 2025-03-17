@@ -43,7 +43,6 @@ func run() error {
 		logger.SetLevel(logrus.InfoLevel)
 	}
 	logger.Infof("application initializing")
-	logger.Infof("About to listen on %s", cfg.Web.APIHost) // you actually do not need it, i am trying to debug to deploy
 	logger.Println("initializing database support")
 	dbconn, err := sql.Open("sqlite3", cfg.DB.Filename)
 	if err != nil {
