@@ -43,6 +43,7 @@ func run() error {
 		logger.SetLevel(logrus.InfoLevel)
 	}
 	logger.Infof("application initializing")
+	logger.Infof("About to listen on %s", cfg.Web.APIHost)
 	logger.Println("initializing database support")
 	dbconn, err := sql.Open("sqlite3", cfg.DB.Filename)
 	if err != nil {
