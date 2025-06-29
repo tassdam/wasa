@@ -1,4 +1,4 @@
-# WASAText Messenger - [website](https://wasatext.vercel.app/)
+# WASAText Messenger
 
 WASAText is a web-based messaging application that provides both one-on-one and group chat functionalities along with features such as file attachments, message reactions, and message forwarding. The project is built on a Go backend (using SQLite as the datastore) and a Vue.js frontend.
 
